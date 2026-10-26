@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Museum Foto 3D</title>
+</head>
+<body>
+<div id="start"><div class="card">
+  <h1>Museum Foto</h1>
+  <label>Nama<input id="nm" maxlength="14"></label>
+  <div class="row">
+    <label>Kulit<input type="color" id="c1"></label>
+    <label>Baju<input type="color" id="c2"></label>
+    <label>Celana<input type="color" id="c3"></label>
+  </div>
+  <label>Topi<select id="hat"></select></label>
+  <label>Kode room (kosongkan untuk main sendiri)<input id="room" maxlength="20" placeholder="contoh: kelas-a"></label>
+  <div id="acct" class="cloudonly"><button id="signin" class="chip">Masuk dengan Google</button><span id="who" class="s"></span></div>
+  <p class="s cloudonly">Kode room yang sama dipakai untuk multiplayer dan galeri online. Denah, foto, dan pengaturannya tersimpan di server, dengan peran pemilik, editor, atau hanya lihat. Kosongkan kode untuk galeri lokal.</p>
+  <button id="go">Masuk galeri</button>
+  <p class="s">Di dalam galeri, tekan H untuk melihat semua shortcut. Klik sebuah foto untuk mengganti, memberi filter, crop, atau frame.</p>
+</div></div>
+
+<div id="hud"></div>
+<div id="badge"></div>
+<div id="bar">
+  <button id="cambtn">Kamera: orang pertama [V]</button>
+  <button id="curbtn">Kursor [Tab]</button>
+  <button id="helpbtn">Bantuan [H]</button>
+  <button id="plnbtn">Denah [L]</button>
+  <button id="accbtn" class="cloudonly">Masuk Google</button>
+  <button id="membtn" class="cloudonly" style="display:none">Anggota [M]</button>
+</div>
+<div id="dot"></div><div id="hint"></div><div id="toast" role="status"></div>
+
+<div id="editor">
+  <div id="edtop">
+    <input id="ttl" maxlength="40" aria-label="Judul foto">
+    <span id="ro" class="s" style="display:none">Hanya lihat</span>
+    <button id="edclose" class="tool">Tutup <kbd>Esc</kbd></button>
+  </div>
+  <div id="stage">
+    <div id="wrap"><canvas id="edc"></canvas><div id="crop"></div></div>
+    <div id="zoom"><button id="zin" aria-label="Perbesar">+</button><button id="zout" aria-label="Perkecil">&minus;</button><button id="zfit">Pas</button></div>
+  </div>
+  <div id="panel"></div>
+  <div id="tools">
+    <button class="tool" id="t-pick">Ganti foto <kbd>U</kbd></button>
+    <button class="tool" data-tab="filter">Filter <kbd>F</kbd></button>
+    <button class="tool" data-tab="frame">Frame <kbd>B</kbd></button>
+    <button class="tool" data-tab="crop">Crop <kbd>C</kbd></button>
+    <button class="tool" id="t-reset">Kembalikan bawaan</button>
+  </div>
+  <input id="pick" type="file" accept="image/*" hidden>
+</div>
+
+<div id="help" class="modal"><div class="hbox">
+  <h2>Shortcut</h2>
+  <div class="grid">
+    <kbd>W A S D</kbd><span>Jalan (tombol panah juga bisa)</span>
+    <kbd>Shift</kbd><span>Lari</span>
+    <kbd>V</kbd><span>Ganti kamera orang pertama / ketiga</span>
+    <kbd>Tab</kbd><span>Tampilkan atau sembunyikan kursor</span>
+    <kbd>E</kbd><span>Buka foto yang dibidik (atau klik)</span>
+    <kbd>H</kbd><span>Buka atau tutup bantuan ini</span>
+    <kbd>L</kbd><span>Buka editor denah museum (pemilik)</span>
+    <kbd>M</kbd><span>Atur akses galeri online (pemilik)</span>
+  </div>
+  <h2>Editor foto</h2>
+  <div class="grid">
+    <kbd>U</kbd><span>Ganti foto</span>
+    <kbd>F</kbd><span>Filter berikutnya</span>
+    <kbd>B</kbd><span>Frame berikutnya</span>
+    <kbd>C</kbd><span>Mode crop, lalu Enter untuk menerapkan</span>
+    <kbd>+ &minus; 0</kbd><span>Zoom masuk, keluar, pas (roda mouse dan cubit juga bisa)</span>
+    <kbd>Esc</kbd><span>Tutup editor</span>
+  </div>
+  <p class="s">Semua perubahan tersimpan otomatis di browser ini. Klik di mana saja untuk menutup.</p>
+</div></div>
+
+<div id="plan" class="modal">
+  <div id="pltools"></div>
+  <canvas id="plc"></canvas>
+  <div id="plopts">
+    <label>Grid <select id="pgrid"><option value="0.5">0,5 m</option><option value="1" selected>1 m</option><option value="2">2 m</option></select></label>
+    <label>Simetri <select id="pmir"><option value="0">Tidak</option><option value="1">Kiri-kanan</option><option value="2">Atas-bawah</option><option value="3">Keduanya</option></select></label>
+    <button id="prot" class="tool">Putar <kbd>R</kbd></button>
+    <button id="pundo" class="tool">Urungkan <kbd>Ctrl+Z</kbd></button>
+    <button id="psave" class="chip primary">Simpan &amp; terapkan</button>
+    <button id="pcancel" class="tool">Tutup <kbd>Esc</kbd></button>
+  </div>
+  <div id="pinfo" class="s"></div>
+</div>
+
+<div id="members" class="modal"><div class="hbox">
+  <h2>Akses galeri</h2>
+  <label>Siapa yang boleh melihat
+    <select id="vis"><option value="public">Publik: siapa saja yang tahu kode room</option><option value="private">Privat: hanya anggota di bawah</option></select>
+  </label>
+  <h2 style="margin-top:14px">Anggota</h2>
+  <div id="mlist" class="s"></div>
+  <div class="addm">
+    <input id="memail" type="email" placeholder="email@gmail.com" aria-label="Email anggota">
+    <select id="mrole" aria-label="Peran"><option value="editor">Editor</option><option value="viewer">Hanya lihat</option></select>
+    <button id="madd" class="chip primary">Tambah</button>
+  </div>
+  <p class="s">Editor boleh mengganti foto, filter, frame, dan crop. Hanya lihat berguna untuk room privat. Anggota harus masuk dengan akun Google yang emailnya sama. Pemilik selalu bisa mengedit.</p>
+  <button id="mclose" class="tool">Tutup <kbd>Esc</kbd></button>
+</div></div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
