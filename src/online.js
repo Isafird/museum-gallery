@@ -12,12 +12,22 @@ const $ = id => document.getElementById(id);
 export function initOnline() {
   if (!cloud.cloudEnabled) return;
   document.body.classList.add('cloud');
+  const { google, email } = cloud.loginMethods;
   cloud.onUser(u => {
     state.user = u;
     $('who').textContent = u ? 'Masuk sebagai ' + u.email : '';
     $('signin').textContent = u ? 'Keluar' : 'Masuk dengan Google';
+    $('signin').style.display = u || google ? '' : 'none';
+    $('emailrow').style.display = !u && email ? 'flex' : 'none';
     $('accbtn').textContent = u ? 'Keluar' : 'Masuk Google';
+    $('accbtn').style.display = u || google ? '' : 'none';
   });
+  $('emailbtn').onclick = async () => {
+    const em = $('email').value.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(em)) { toast('Email tidak valid'); return; }
+    const { error } = await cloud.signInEmail(em);
+    toast(error ? (error.status === 429 ? 'Batas pengiriman email tercapai, coba lagi nanti' : 'Gagal mengirim: ' + error.message) : 'Link masuk dikirim. Buka link di email dengan browser ini.');
+  };
   const auth = async () => { try { cloud.getUser() ? await cloud.signOutUser() : await cloud.signIn(); } catch (e) { toast('Gagal masuk: ' + (e.code || e.message)); } };
   $('signin').onclick = auth;
   $('accbtn').onclick = e => { auth(); e.currentTarget.blur(); };

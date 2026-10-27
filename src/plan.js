@@ -64,7 +64,7 @@ function addFrame(p) {
   flips().forEach(([fx, fz]) => {
     const f = { x: fx * p.x, z: fz * p.z, a: +Math.atan2(fx * Math.sin(p.a), fz * Math.cos(p.a)).toFixed(4) };
     if (work.frames.length >= MAX_FRAMES || !frameOnWall(f, m)) return;
-    if (work.frames.some(o => Math.hypot(o.x - f.x, o.z - f.z) < FRAME_W && Math.abs(Math.sin(o.a - f.a)) < .05)) return;   // sudah ada di situ
+    if (work.frames.some(o => Math.hypot(o.x - f.x, o.z - f.z) < FRAME_W * .9 && Math.cos(o.a - f.a) > .5)) return;   // terlalu dekat dengan bingkai lain yang searah
     let id = 0; while (work.frames.some(o => o.id === id)) id++;
     work.frames.push({ id, ...f });
   });

@@ -40,6 +40,16 @@ create function public.can_edit(r text) returns boolean language sql stable secu
 create function public.is_owner(r text) returns boolean language sql stable security definer set search_path = public
   as $$ select exists (select 1 from rooms where id = r and owner = auth.uid()) $$;
 
+-- ========== Izin dasar (GRANT) ==========
+-- Project Supabase baru tidak lagi membuka tabel baru ke API secara otomatis, jadi izinnya diberikan di sini.
+-- Siapa yang benar-benar boleh melakukan apa tetap ditentukan oleh aturan RLS di bawah.
+grant usage on schema public to anon, authenticated;
+grant select on public.rooms, public.frames to anon, authenticated;
+grant select on public.members to authenticated;
+grant insert, update on public.rooms to authenticated;
+grant insert, update, delete on public.members, public.frames to authenticated;
+grant execute on function public.my_email(), public.my_role(text), public.can_view(text), public.can_edit(text), public.is_owner(text) to anon, authenticated;
+
 -- ========== Aturan akses (RLS) ==========
 alter table public.rooms enable row level security;
 alter table public.members enable row level security;

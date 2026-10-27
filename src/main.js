@@ -29,6 +29,8 @@ initUI({
 initOnline();
 db.loadLayout().then(l => { if (l && !state.online) applyLayout(l); initPhotos(); });   // mode lokal: muat denah dan foto tersimpan
 
+if (location.search.includes('debug')) window.__s = { state };   // hook untuk pengujian otomatis (tambahkan ?debug ke alamat)
+if (new URLSearchParams(location.search).has('cek')) import('./diagnose.js').then(m => m.run());   // halaman diagnosis Supabase
 const ray = new THREE.Raycaster(), clock = new THREE.Clock();
 
 function move(dt) {

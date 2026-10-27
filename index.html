@@ -16,9 +16,14 @@
   </div>
   <label>Topi<select id="hat"></select></label>
   <label>Kode room (kosongkan untuk main sendiri)<input id="room" maxlength="20" placeholder="contoh: kelas-a"></label>
-  <div id="acct" class="cloudonly"><button id="signin" class="chip">Masuk dengan Google</button><span id="who" class="s"></span></div>
+  <div id="acct" class="cloudonly">
+    <button id="signin" class="chip">Masuk dengan Google</button>
+    <span id="who" class="s"></span>
+    <div id="emailrow"><input id="email" type="email" placeholder="email untuk link masuk" aria-label="Email"><button id="emailbtn" class="chip">Kirim link masuk</button></div>
+  </div>
   <p class="s cloudonly">Kode room yang sama dipakai untuk multiplayer dan galeri online. Denah, foto, dan pengaturannya tersimpan di server, dengan peran pemilik, editor, atau hanya lihat. Kosongkan kode untuk galeri lokal.</p>
   <button id="go">Masuk galeri</button>
+  <p class="s"><a href="?cek" style="color:var(--ac)">Cek koneksi Supabase</a></p>
   <p class="s">Di dalam galeri, tekan H untuk melihat semua shortcut. Klik sebuah foto untuk mengganti, memberi filter, crop, atau frame.</p>
 </div></div>
 

@@ -125,10 +125,11 @@ export function findSpawn(m) {
 
 // ---------- bingkai di dinding ----------
 // Cari titik dinding terdekat dari (px,pz), disnap ke kelipatan `step` meter. null kalau tidak ada.
-export function snapToWall(m, px, pz, step = .5, margin = FRAME_W / 2 + .1) {
+export function snapToWall(m, px, pz, step = .5, margin0 = FRAME_W / 2 + .1) {
   let best = null;
   for (const w of m.walls) {
-    const dx = w.x2 - w.x1, dz = w.z2 - w.z1, L = Math.hypot(dx, dz); if (L < 2 * margin) continue;
+    const dx = w.x2 - w.x1, dz = w.z2 - w.z1, L = Math.hypot(dx, dz); if (L < .2) continue;
+    const margin = Math.min(margin0, L / 2);       // sisi pendek (dinding melengkung): bingkai di tengah sisi
     const ux = dx / L, uz = dz / L, clamp = s => Math.max(margin, Math.min(L - margin, s));
     let s = clamp((px - w.x1) * ux + (pz - w.z1) * uz);
     const horiz = Math.abs(uz) < 1e-6, vert = Math.abs(ux) < 1e-6;

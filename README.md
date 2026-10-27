@@ -69,17 +69,23 @@ Tekan **L** (atau tombol "Denah") untuk membuka editor denah. Pada galeri online
 - **Simetri:** Kiri-kanan, Atas-bawah, atau Keduanya akan membuat salinan cermin terhadap sumbu tengah secara otomatis, termasuk bingkai.
 - Foto tetap ikut bingkainya (berdasarkan nomor bingkai) walaupun posisinya dipindah. Bingkai yang dihapus dari denah ikut menghapus fotonya.
 
-## Galeri online (Supabase)
-Tanpa config Supabase, game tetap jalan dalam mode lokal. Untuk galeri online dengan peran:
+## Galeri online (Supabase + login Google)
+Tanpa config Supabase, game tetap jalan dalam mode lokal. Untuk galeri online, kerjakan urut dan cek tiap langkah.
 
-1. Buat project di supabase.com (paket Free). Pilih region terdekat.
-2. SQL Editor > New query > tempel isi `supabase.sql` > Run.
-3. Project Settings > API: salin **Project URL** dan **anon public key** ke `src/supabase-config.js`.
-4. Authentication > Providers > aktifkan **Google**. Di sana tertulis alamat callback; buat OAuth Client ID (Web application) di Google Cloud Console dengan alamat callback itu sebagai Authorized redirect URI, lalu tempel Client ID dan Secret ke Supabase.
-5. Authentication > URL Configuration: isi Site URL dengan alamat GitHub Pages kamu, dan tambahkan alamat yang sama (serta `http://localhost:5173/` untuk uji lokal) ke Redirect URLs.
-6. Commit dan push. GitHub Actions akan deploy ulang.
+**Tips:** setelah mengisi config, buka game dengan `?cek` di belakang alamatnya (contoh `http://localhost:5173/?cek`). Halaman itu memeriksa URL, kunci, login Google, tabel, dan bucket foto, lalu menunjukkan mana yang salah.
 
-(Nama menu di dashboard Supabase bisa sedikit berbeda dari tulisan di atas.)
+1. **Project.** Buat project di supabase.com (Free, region Singapore). Tunggu sampai siap.
+2. **Database.** SQL Editor > New query > tempel seluruh `supabase.sql` > Run. Harus muncul Success. Cek: Table Editor berisi `rooms`, `members`, `frames`; Storage berisi bucket `photos`.
+3. **URL dan kunci.** Project URL ada di Project Settings > Data API (bentuknya `https://xxxx.supabase.co`, tanpa `/rest/v1`). Publishable key ada di Project Settings > API Keys (`sb_publishable_...`). Jangan pakai secret key. Isi `src/supabase-config.js`, lalu jalankan `npm run dev` dan buka `?cek`. Dua poin pertama harus hijau.
+4. **Google Cloud.** Buat project, isi Google Auth Platform (External), buat OAuth client bertipe Web application. Authorized redirect URI diisi `https://xxxx.supabase.co/auth/v1/callback`. Salin Client ID dan Client secret. Tambahkan emailmu di Audience > Test users.
+5. **Supabase: Google.** Authentication > Sign In / Providers > Google: aktifkan, tempel Client ID dan Client secret, Save.
+6. **Supabase: URL.** Authentication > URL Configuration. **Site URL** = alamat game (bukan alamat supabase.co). **Redirect URLs** = `http://localhost:5173/**` dan `https://USERNAME.github.io/NAMA-REPO/**`.
+7. **Tes.** Muat ulang `?cek` (semua hijau), lalu buka game, klik Masuk dengan Google, isi kode room, Masuk galeri.
+8. **Deploy.** Commit dan push, aktifkan Pages (Source: GitHub Actions). Uji lagi di alamat GitHub Pages.
+
+Mulai ulang: jalankan `supabase-reset.sql` di SQL Editor (menghapus tabel dan aturan lama), kosongkan Storage > photos lewat dashboard, lalu jalankan lagi `supabase.sql`.
+
+Pesan `No API key found in request` setelah login biasanya berarti Site URL atau Redirect URL salah (berisi alamat supabase.co), atau URL di config berisi `/rest/v1`.
 
 ### Peran
 | Peran | Boleh |

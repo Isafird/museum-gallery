@@ -56,6 +56,8 @@ kbd{font:inherit;font-size:11px;opacity:.8;margin-left:6px;border:1px solid curr
 body.cloud .cloudonly{display:revert}
 body.cloud #acct{display:flex}
 #acct{align-items:center;gap:10px;flex-wrap:wrap}
+#emailrow{display:flex;gap:8px;width:100%}
+#emailrow input{flex:1;min-width:0}
 #badge{position:fixed;top:calc(env(safe-area-inset-top,0px) + 52px);left:10px;z-index:4;background:rgba(22,24,29,.75);padding:6px 12px;border-radius:8px;font-size:13px;max-width:min(420px,80vw);display:none}
 #members .hbox{width:min(460px,100%)}
 .mrow{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;margin-bottom:8px;font-size:14px}
@@ -72,3 +74,9 @@ body.cloud #acct{display:flex}
 #plopts{display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;align-items:flex-end;flex:none}
 #plopts label{flex-direction:row;align-items:center;gap:6px}
 #pinfo{padding:0 12px 10px;flex:none}
+
+#diag{position:fixed;inset:0;z-index:30;background:#0f1115;overflow:auto;padding:24px 16px}
+.dg{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+.dr{background:#1a1d23;border-radius:8px;padding:10px 14px;font-size:14px;border-left:4px solid #3a3e48}
+.dr.ok{border-color:#3fb950}.dr.bad{border-color:#e5484d}.dr.info{border-color:#8fb4d9}
+.dr .s{margin-top:4px;overflow-wrap:anywhere}

@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { supabaseConfig as C, cloudEnabled } from './supabase-config.js';
-export { cloudEnabled };
+import { supabaseConfig as C, cloudEnabled, loginMethods } from './supabase-config.js';
+export { cloudEnabled, loginMethods };
 
 // Galeri online (Supabase). Tabel: rooms (pemilik, publik/privat, denah), members, frames. Foto di Storage bucket "photos".
 // Siapa boleh apa ditentukan oleh aturan RLS di supabase.sql.
@@ -13,11 +13,14 @@ export const roomId = code => code.toLowerCase().replace(/[^a-z0-9-]/g, '').slic
 export const getUser = () => user;
 export function onUser(cb) { userCbs.add(cb); cb(user); }
 export const signIn = () => sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname } });
+// Login tanpa password: Supabase mengirim link masuk ke email (email terbukti milik pengguna setelah link diklik)
+export const signInEmail = email => sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
 export const signOutUser = () => sb.auth.signOut();
 const canEdit = () => !!(S && S.access && S.access.canEdit);
 
 if (cloudEnabled) {
-  sb = createClient(C.url, C.anonKey);
+  // Ambil hanya alamat dasarnya (https://xxxx.supabase.co). Kalau terlanjur ditempel dengan /rest/v1 atau garis miring, dibuang.
+  sb = createClient(new URL(C.url.trim()).origin, C.anonKey.trim());
   sb.auth.onAuthStateChange((_e, session) => {
     const u = session && session.user;
     user = u ? { uid: u.id, email: (u.email || '').toLowerCase(), name: (u.user_metadata && u.user_metadata.full_name) || u.email } : null;
