@@ -2,15 +2,19 @@
 //   shapes:   { k, x, z, w, h, r }  bentuk dalam kotak (x,z,w,h), r = putaran 0..3 x 90 derajat
 //             { k:'poly', pts }     bentuk bebas
 //   dividers: [x1, z1, x2, z2]      dinding pembatas di dalam ruangan
-//   frames:   { id, x, z, a }       bingkai menempel di dinding; (x,z) titik di tengah dinding, a = arah hadap
+//   frames:   { id, x, z, a, pl, sp } bingkai menempel di dinding; (x,z) titik di tengah dinding, a = arah hadap,
+//                                     pl = papan nama ('b' bawah, 't' atas, 'n' tidak ada), sp = lampu sorot
+//   doors:    { x, z, a }             pintu di dinding (lebar DOOR_W); menyatukan ruang di kedua sisinya
+//   lights:   [{ x, z, on }]          lampu ruangan (kalau kosong dibuat otomatis)
 // Semua fungsi di sini murni (tanpa THREE) sehingga dipakai editor 2D dan tampilan 3D.
-export const MAX_FRAMES = 40, WALL_T = .3, FRAME_OFF = .2, FRAME_W = 2.7;
+export const MAX_FRAMES = 40, MAX_LIGHTS = 12, WALL_T = .3, FRAME_OFF = .2, FRAME_W = 2.7, DOOR_W = 2.4, DOOR_D = 1.2;
 
 const circle = Array.from({ length: 40 }, (_, i) => { const t = i / 40 * 2 * Math.PI; return [.5 + .5 * Math.cos(t), .5 + .5 * Math.sin(t)]; });
 export const TEMPLATES = {
   rect: [[0, 0], [1, 0], [1, 1], [0, 1]],
   ellipse: circle,
-  tri: [[.5, 0], [1, 1], [0, 1]],
+  tri: [[.5, 0], [1, 1], [0, 1]],            // (tidak ada lagi di alat gambar, dipertahankan untuk denah lama)
+  semi: Array.from({ length: 25 }, (_, i) => { const t = i / 24 * Math.PI; return [.5 + .5 * Math.cos(t), 1 - Math.sin(t)]; }),   // setengah lingkaran, sisi datar di bawah
   hex: [[.25, 0], [.75, 0], [1, .5], [.75, 1], [.25, 1], [0, .5]],
   ell: [[0, 0], [.4, 0], [.4, .6], [1, .6], [1, 1], [0, 1]],
   tee: [[0, 0], [1, 0], [1, .35], [.65, .35], [.65, 1], [.35, 1], [.35, .35], [0, .35]],
@@ -23,14 +27,22 @@ export function defaultLayout() {
   [-9, -3, 3, 9].forEach(x => frames.push({ id: id++, x, z: 9, a: Math.PI }));
   [-3, 3].forEach(x => frames.push({ id: id++, x, z: 0, a: 0 }));
   [-3, 3].forEach(x => frames.push({ id: id++, x, z: 0, a: Math.PI }));
-  return { v: 1, shapes: [{ k: 'rect', x: -15, z: -9, w: 30, h: 18, r: 0 }], dividers: [[-7, 0, 7, 0]], frames };
+  return { v: 1, shapes: [{ k: 'rect', x: -15, z: -9, w: 30, h: 18, r: 0 }], dividers: [[-7, 0, 7, 0]], doors: [], frames };
 }
 export function normalizeLayout(l) {
   if (!l || !Array.isArray(l.shapes) || !l.shapes.length) return defaultLayout();
-  return { v: 1, shapes: l.shapes.slice(0, 60), dividers: (l.dividers || []).slice(0, 80), frames: (l.frames || []).slice(0, MAX_FRAMES) };
+  const out = { v: 1, shapes: l.shapes.slice(0, 60), dividers: (l.dividers || []).slice(0, 80), doors: (l.doors || []).slice(0, 40), frames: (l.frames || []).slice(0, MAX_FRAMES) };
+  if (Array.isArray(l.lights)) out.lights = l.lights.slice(0, MAX_LIGHTS);
+  return out;
 }
 
 // ---------- geometri dasar ----------
+// Lantai kecil di sekitar pintu (DOOR_W x DOOR_D). Ikut digabung ke lantai, sehingga dinding di lokasi pintu terbuka
+export function doorPoly(d) {
+  const nx = Math.sin(d.a), nz = Math.cos(d.a), tx = nz, tz = -nx, hw = DOOR_W / 2, hd = DOOR_D / 2;
+  const p = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [d.x + tx * hw * a + nx * hd * b, d.z + tz * hw * a + nz * hd * b]);
+  return area(p) < 0 ? p.reverse() : p;
+}
 export const area = p => p.reduce((s, q, i) => { const n = p[(i + 1) % p.length]; return s + q[0] * n[1] - n[0] * q[1]; }, 0) / 2;
 export function shapePoly(s) {
   let pts;
@@ -100,14 +112,33 @@ function unionEdges(P) {
 }
 
 export function analyze(l) {
-  const polys = l.shapes.map(shapePoly), walls = unionEdges(polys);
-  (l.dividers || []).forEach(([x1, z1, x2, z2]) => {
+  const doors = l.doors || [], polys = l.shapes.map(shapePoly).concat(doors.map(doorPoly)), walls = unionEdges(polys);
+  (l.dividers || []).forEach(([x1, z1, x2, z2]) => {          // dinding pembatas, dipotong di tempat pintu
     const L = Math.hypot(x2 - x1, z2 - z1); if (L < 1e-6) return;
-    walls.push({ x1, z1, x2, z2, nx: -(z2 - z1) / L, nz: (x2 - x1) / L, div: true });
+    const ux = (x2 - x1) / L, uz = (z2 - z1) / L, nx = -uz, nz = ux, cuts = [];
+    doors.forEach(d => {
+      if (segD(d.x, d.z, x1, z1, x2, z2) > .06 || Math.abs(Math.sin(d.a) * nx + Math.cos(d.a) * nz) < .98) return;
+      const s = (d.x - x1) * ux + (d.z - z1) * uz; cuts.push([s - DOOR_W / 2, s + DOOR_W / 2]);
+    });
+    cuts.sort((a, b) => a[0] - b[0]); let cur = 0;
+    const piece = (a, b) => { if (b - a > .05) walls.push({ x1: x1 + ux * a, z1: z1 + uz * a, x2: x1 + ux * b, z2: z1 + uz * b, nx, nz, div: true }); };
+    cuts.forEach(([a, b]) => { if (a > cur) piece(cur, Math.min(a, L)); cur = Math.max(cur, b); }); if (cur < L) piece(cur, L);
   });
   const all = polys.flat(), b = { minx: Infinity, maxx: -Infinity, minz: Infinity, maxz: -Infinity };
   all.forEach(([x, z]) => { b.minx = Math.min(b.minx, x); b.maxx = Math.max(b.maxx, x); b.minz = Math.min(b.minz, z); b.maxz = Math.max(b.maxz, z); });
-  return { polys, walls, bounds: all.length ? b : { minx: -5, maxx: 5, minz: -5, maxz: 5 } };
+  const bounds = all.length ? b : { minx: -5, maxx: 5, minz: -5, maxz: 5 };
+  return { polys, walls, bounds, lights: Array.isArray(l.lights) ? l.lights : autoLights({ polys, bounds }) };
+}
+// Lampu ruangan otomatis: kisi merata di dalam lantai, paling banyak MAX_LIGHTS
+export function autoLights(m) {
+  const b = m.bounds;
+  for (let s = 6; s < 40; s++) {
+    const out = [];
+    for (let x = b.minx + s / 2; x < b.maxx; x += s) for (let z = b.minz + s / 2; z < b.maxz; z += s)
+      if (inFloor(m, x, z)) out.push({ x: Math.round(x * 2) / 2, z: Math.round(z * 2) / 2, on: true });
+    if (out.length && out.length <= MAX_LIGHTS) return out;
+  }
+  return [{ x: Math.round((b.minx + b.maxx)), z: Math.round((b.minz + b.maxz)), on: true }].map(l => ({ x: l.x / 2, z: l.z / 2, on: true }));
 }
 export const inFloor = (m, x, z) => m.polys.some(q => pip([x, z], q));
 export const walkable = (m, x, z, r = .45) => inFloor(m, x, z) && m.walls.every(w => segD(x, z, w.x1, w.z1, w.x2, w.z2) >= r);
@@ -125,9 +156,29 @@ export function findSpawn(m) {
 
 // ---------- bingkai di dinding ----------
 // Cari titik dinding terdekat dari (px,pz), disnap ke kelipatan `step` meter. null kalau tidak ada.
+// Gabungkan potongan dinding yang segaris dan bersambung (dinding terpecah di titik singgung bentuk lain)
+function mergeWalls(ws) {
+  const groups = new Map();
+  for (const w of ws) {
+    const dx = w.x2 - w.x1, dz = w.z2 - w.z1, L = Math.hypot(dx, dz); if (L < 1e-9) continue;
+    let [ax, az, bx, bz] = [w.x1, w.z1, w.x2, w.z2], ux = dx / L, uz = dz / L;
+    if (ux < -1e-9 || (Math.abs(ux) < 1e-9 && uz < 0)) { [ax, az, bx, bz] = [bx, bz, ax, az]; ux = -ux; uz = -uz; }
+    const key = [Math.round(ux * 1e3), Math.round(uz * 1e3), Math.round((-uz * ax + ux * az) * 100), +w.div, Math.round(w.nx * 1e3), Math.round(w.nz * 1e3)].join();
+    if (!groups.has(key)) groups.set(key, { ux, uz, nx: w.nx, nz: w.nz, div: w.div, items: [] });
+    groups.get(key).items.push({ t0: ux * ax + uz * az, t1: ux * bx + uz * bz, ax, az });
+  }
+  const out = [];
+  for (const g of groups.values()) {
+    g.items.sort((p, q) => p.t0 - q.t0); let cur = null;
+    const flush = () => { if (cur) out.push({ x1: cur.ax, z1: cur.az, x2: cur.ax + g.ux * (cur.t1 - cur.t0), z2: cur.az + g.uz * (cur.t1 - cur.t0), nx: g.nx, nz: g.nz, div: g.div }); };
+    for (const it of g.items) { if (cur && it.t0 <= cur.t1 + 1e-3) cur.t1 = Math.max(cur.t1, it.t1); else { flush(); cur = { ...it }; } }
+    flush();
+  }
+  return out;
+}
 export function snapToWall(m, px, pz, step = .5, margin0 = FRAME_W / 2 + .1) {
   let best = null;
-  for (const w of m.walls) {
+  for (const w of mergeWalls(m.walls)) {
     const dx = w.x2 - w.x1, dz = w.z2 - w.z1, L = Math.hypot(dx, dz); if (L < .2) continue;
     const margin = Math.min(margin0, L / 2);       // sisi pendek (dinding melengkung): bingkai di tengah sisi
     const ux = dx / L, uz = dz / L, clamp = s => Math.max(margin, Math.min(L - margin, s));
@@ -138,7 +189,8 @@ export function snapToWall(m, px, pz, step = .5, margin0 = FRAME_W / 2 + .1) {
     const ax = w.x1 + ux * s, az = w.z1 + uz * s, d = Math.hypot(px - ax, pz - az);
     let nx = w.nx, nz = w.nz;
     if (w.div && (px - ax) * -uz + (pz - az) * ux < 0) { nx = -nx; nz = -nz; }   // dinding pembatas: pilih sisi kursor
-    if (!best || d < best.d) best = { x: +ax.toFixed(3), z: +az.toFixed(3), a: +Math.atan2(nx, nz).toFixed(4), d };
+    const rank = d + (L < 2 * margin0 ? .6 : 0);      // dinding lurus panjang diutamakan daripada sisi-sisi pendek lingkaran
+    if (!best || rank < best.rank) best = { x: +ax.toFixed(3), z: +az.toFixed(3), a: +Math.atan2(nx, nz).toFixed(4), d, rank };
   }
   return best && best.d < 2 ? best : null;
 }

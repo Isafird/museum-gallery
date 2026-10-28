@@ -19,15 +19,16 @@ npm run dev
 | File | Isi |
 |---|---|
 | `src/config.js` | Tinggi ruangan, kecepatan, filter, gaya frame, judul bawaan |
-| `src/gallery.js` | Membangun museum 3D dari denah |
+| `src/gallery.js` | Membangun museum 3D dari denah (dinding, pintu, lampu, bingkai, papan nama, lampu sorot) |
 | `src/avatar.js` | Bentuk karakter, daftar topi, animasi jalan |
 | `src/network.js` | Multiplayer (host + relay lewat PeerJS) |
 | `src/controls.js` | Keyboard, mouse, sentuh |
 | `src/ui.js` | Formulir karakter, tombol atas, bantuan |
 | `src/editor.js` | Editor foto: ganti foto, filter, frame, crop, zoom |
 | `src/photos.js` | Menggambar foto ke bingkai 3D dan menyimpannya |
-| `src/layout.js` | Model denah dan geometri (bentuk, dinding, tabrakan, snap bingkai) |
-| `src/plan.js` | Editor denah 2D (grid, bentuk, simetri) |
+| `src/layout.js` | Model denah dan geometri (bentuk, dinding, pintu, lampu, tabrakan, snap bingkai) |
+| `src/frames3d.js` | Bentuk 3D tiap gaya bingkai |
+| `src/plan.js` | Editor denah 2D (bentuk, pilih/putar/pindah, pintu, lampu, simetri) |
 | `src/world.js` | Memasang dan menyimpan denah |
 | `src/cloud.js` | Galeri online (Supabase): login, peran, sinkron denah dan foto |
 | `src/online.js` | Menghubungkan galeri online ke UI, panel anggota |
@@ -61,15 +62,26 @@ Foto asli (maksimal 2400 px) dan pengaturannya (crop, filter, frame, judul) disi
 ## Denah museum
 Tekan **L** (atau tombol "Denah") untuk membuka editor denah. Pada galeri online hanya pemilik yang bisa mengubah denah.
 
-- **Bentuk ruangan:** Kotak, Lingkaran, Elips, Segitiga, Segi enam, Bentuk L, T, Plus. Seret di kanvas untuk menentukan ukuran. Tekan **R** untuk memutar bentuk 90 derajat.
+**Alat gambar**
+- **Bentuk ruangan:** Kotak, Lingkaran, Setengah lingkaran, Segi enam, Bentuk L, T, Plus. Seret di kanvas untuk menentukan ukuran. Sebelum menggambar, **R** memutar arah bentuk (misalnya arah kubah setengah lingkaran). Lingkaran selalu bulat dan setengah lingkaran selalu berbanding 2:1.
 - **Bebas:** klik titik-titik sudut, lalu klik titik awal atau tekan Enter untuk menutup.
-- **Menggabung:** bentuk yang bertumpuk atau bersebelahan menyatu menjadi satu ruang. Tinggalkan jarak kalau ingin ruangan terpisah.
+- **Menggabung:** bentuk yang bertumpuk atau bersebelahan menyatu menjadi satu ruang.
 - **Dinding:** seret untuk membuat dinding pembatas di dalam ruangan.
-- **Bingkai:** pilih alat Bingkai, arahkan ke dinding, lalu klik. Bingkai otomatis menempel dan menghadap ke dalam ruangan (dinding pembatas bisa di kedua sisi). Maksimal 40 bingkai.
-- **Hapus:** klik bingkai, dinding, atau ruangan.
-- **Grid:** 0,5 / 1 / 2 meter. Semua titik menempel ke grid, dan garis biru adalah sumbu tengah.
-- **Simetri:** Kiri-kanan, Atas-bawah, atau Keduanya akan membuat salinan cermin terhadap sumbu tengah secara otomatis, termasuk bingkai.
-- Foto tetap ikut bingkainya (berdasarkan nomor bingkai) walaupun posisinya dipindah. Bingkai yang dihapus dari denah ikut menghapus fotonya.
+- **Pintu:** arahkan ke dinding lalu klik. Pintu selebar 2,4 m membuka dinding dan menyambung dua ruangan yang hanya bersentuhan (misalnya lingkaran yang hanya menempel di ujung dinding). Pintu juga bisa dipasang di dinding pembatas.
+- **Bingkai:** arahkan ke dinding lalu klik. Bingkai menempel otomatis dan menghadap ke dalam ruangan. Maksimal 40 bingkai.
+- **Lampu:** klik di lantai untuk menaruh lampu ruangan (maksimal 12).
+- **Hapus:** klik bingkai, pintu, lampu, dinding, atau ruangan.
+
+**Memilih dan mengubah objek yang sudah dibuat (alat Pilih)**
+- Klik ruangan atau dinding untuk memilihnya. **R** memutarnya 90°, seret untuk memindahkan, **Delete** untuk menghapus. Bingkai, pintu, dan lampu yang menempel ikut berputar dan berpindah.
+- Klik sebuah **bingkai** untuk mengatur **papan nama** (di bawah, di atas, atau tanpa) dan **lampu sorot** (lampu langit-langit dengan berkas cahaya ke lukisan).
+- Klik sebuah **lampu ruangan** lalu tekan **Spasi** (atau klik tombolnya) untuk menyala atau mematikannya satu per satu. Lampu yang mati tampil sebagai fitting gelap dan ruangannya lebih redup.
+- Papan nama menampilkan judul foto. Judul diubah di editor foto.
+
+**Lainnya:** Grid 0,5 / 1 / 2 m (semua titik menempel ke grid, garis biru adalah sumbu tengah), Simetri (Kiri-kanan, Atas-bawah, atau Keduanya membuat salinan cermin otomatis), Urungkan (Ctrl+Z), geser dan zoom, dan info luas lantai.
+Foto ikut bingkainya (berdasarkan nomor bingkai) walaupun posisinya dipindah. Bingkai yang dihapus dari denah ikut menghapus fotonya, dengan konfirmasi dulu.
+
+**Gaya bingkai** (dipilih di editor foto, tombol B): Kayu, Emas, Putih, Hitam, Tipis, Ornamen kayu, Kerajaan, Lucu, Fun, Minimalis, Modern, Neon. Bentuk 3D-nya ada di `src/frames3d.js`, mudah ditambah.
 
 ## Galeri online (Supabase + login Google)
 Tanpa config Supabase, game tetap jalan dalam mode lokal. Untuk galeri online, kerjakan urut dan cek tiap langkah.

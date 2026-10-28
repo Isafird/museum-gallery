@@ -1,6 +1,6 @@
-import { entries, ensureEntry, defTitle } from './gallery.js';
+import { entries, ensureEntry, defTitle, setFrameStyle, drawPlaque } from './gallery.js';
 import { state } from './state.js';
-import { FILTERS, FRAME_STYLES, MAX_IMG, DEFAULT_PHOTO } from './config.js';
+import { FILTERS, MAX_IMG, DEFAULT_PHOTO } from './config.js';
 import * as db from './db.js';
 import { toast } from './toast.js';
 
@@ -12,11 +12,7 @@ const canEdit = () => { if (state.access.canEdit) return true; toast('Kamu hanya
 export const getSource = i => entries[i].bmp || entries[i].art;
 const notify = i => dispatchEvent(new CustomEvent('frame-remote', { detail: i }));
 
-export function applyFrame(i) {
-  const e = entries[i]; if (!e || !e.frameMesh) return;
-  const s = FRAME_STYLES.find(x => x.id === e.data.frame) || FRAME_STYLES[0], m = e.frameMesh.material;
-  m.color.setHex(s.color); m.metalness = s.metal; m.roughness = s.rough; e.frameMesh.scale.set(s.sx, s.sy, 1);
-}
+export function applyFrame(i) { setFrameStyle(i); }
 
 // Gambar ulang isi bingkai di 3D (crop + filter, di atas matte putih)
 export function render(i) {
@@ -28,7 +24,7 @@ export function render(i) {
   const f = FILTERS.find(x => x.id === d.filter);
   if ('filter' in g && f) g.filter = f.css;       // (browser tanpa ctx.filter menampilkan foto tanpa filter)
   g.drawImage(src, sx, sy, sw, sh, (c.width - w) / 2, (c.height - h) / 2, w, h);
-  g.filter = 'none'; e.tex.needsUpdate = true;
+  g.filter = 'none'; e.tex.needsUpdate = true; drawPlaque(i);
 }
 
 const timers = {}, inflight = new Set();
@@ -70,7 +66,7 @@ export function update(i, patch) {
 }
 export function updateTitle(i, title) {
   if (!canEdit()) return;
-  entries[i].title = title.trim().slice(0, 40) || defTitle(i); persist(i);
+  entries[i].title = title.trim().slice(0, 40) || defTitle(i); drawPlaque(i); persist(i);
 }
 
 // Kecilkan dan kompres foto sebelum disimpan

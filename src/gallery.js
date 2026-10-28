@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { scene } from './scene.js';
-import { ROOM, TITLES, DEFAULT_PHOTO } from './config.js';
-import { analyze, walkable as walk, inFloor, FRAME_OFF, WALL_T } from './layout.js';
+import { ROOM, TITLES, DEFAULT_PHOTO, FRAME_STYLES } from './config.js';
+import { analyze, walkable as walk, inFloor, FRAME_OFF, WALL_T, DOOR_W, MAX_LIGHTS } from './layout.js';
+import { buildFrame } from './frames3d.js';
 
 const { H } = ROOM;
 export const entries = [];   // entries[id]: { art, canvas, tex, frameMesh, title, data, bmp }  (id = nomor bingkai)
@@ -10,7 +11,7 @@ export const museum = { polys: [], walls: [], bounds: null, layout: null };   //
 export const defTitle = i => TITLES[i] || `Foto ${i + 1}`;
 export const walkable = (x, z, r) => walk(museum, x, z, r);
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x6b5a4a, .75));
+scene.add(new THREE.HemisphereLight(0xffffff, 0x6b5a4a, .45));   // cahaya dasar; sisanya dari lampu ruangan di denah
 const root = new THREE.Group(); scene.add(root);          // seluruh isi museum, dibangun ulang saat denah berubah
 
 // ---- bahan ----
@@ -66,6 +67,59 @@ function clearRoot() {
   root.children.slice().forEach(o => { root.remove(o); o.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.userData.own) c.material.dispose(); }); });
   pics.length = 0;
 }
+const brass = new THREE.MeshStandardMaterial({ color: 0xb08d57, metalness: .5, roughness: .4 });
+const fixOn = new THREE.MeshBasicMaterial({ color: 0xfff3d6 }), fixOff = new THREE.MeshStandardMaterial({ color: 0x4a4e56, roughness: .8 });
+const metalDark = new THREE.MeshStandardMaterial({ color: 0x2b2d33, metalness: .6, roughness: .4 });
+let glowTex;
+function glow() {
+  if (!glowTex) {
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    const gr = g.createRadialGradient(64, 64, 4, 64, 64, 62); gr.addColorStop(0, 'rgba(255,240,200,1)'); gr.addColorStop(.6, 'rgba(255,230,170,.35)'); gr.addColorStop(1, 'rgba(255,230,170,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128); glowTex = new THREE.CanvasTexture(c);
+  }
+  return glowTex;
+}
+
+// ---- papan nama ----
+function addPlaque(g, e) {
+  const grp = new THREE.Group(); grp.add(new THREE.Mesh(new THREE.BoxGeometry(1.7, .32, .04), brass));
+  if (!e.plq) { const c = document.createElement('canvas'); c.width = 512; c.height = 80; e.plq = { c, tex: new THREE.CanvasTexture(c) }; }
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(1.6, .25), new THREE.MeshBasicMaterial({ map: e.plq.tex })); face.position.z = .022; face.userData.own = true; grp.add(face);
+  g.add(grp); e.plaque = grp;
+}
+export function drawPlaque(i) {
+  const e = entries[i]; if (!e || !e.plq) return;
+  const c = e.plq.c, x = c.getContext('2d'); x.fillStyle = '#efe6cf'; x.fillRect(0, 0, c.width, c.height);
+  let size = 50; x.font = `600 ${size}px Georgia, serif`;
+  while (x.measureText(e.title).width > c.width - 40 && size > 18) { size -= 2; x.font = `600 ${size}px Georgia, serif`; }
+  x.fillStyle = '#2a2418'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(e.title, c.width / 2, c.height / 2 + 2); e.plq.tex.needsUpdate = true;
+}
+
+// ---- gaya bingkai ----
+export function setFrameStyle(i) {
+  const e = entries[i]; if (!e || !e.frameMesh) return;
+  const h = e.frameMesh; h.children.slice().forEach(c => { h.remove(c); if (c.geometry) c.geometry.dispose(); });
+  buildFrame(h, e.data.frame);
+  const s = FRAME_STYLES.find(x => x.id === e.data.frame) || FRAME_STYLES[0];
+  e.ey = s.ey; e.eyt = s.eyt || s.ey;
+  if (e.plaque) e.plaque.position.set(0, e.plSide === 't' ? e.eyt + .2 : -(e.ey + .2), .03);
+}
+
+// ---- lampu sorot: lampu di langit-langit, berkas cahaya, dan bercak terang di dinding ----
+function addSpot(g, ey) {
+  const pool = new THREE.Mesh(new THREE.PlaneGeometry(3.8, 3.2), new THREE.MeshBasicMaterial({ map: glow(), transparent: true, opacity: .5, blending: THREE.AdditiveBlending, depthWrite: false }));
+  pool.position.set(0, 0, -.044); pool.userData.own = true; g.add(pool);
+  const lampY = Math.min(2.2, ey + .9), lp = new THREE.Vector3(0, lampY, .85), tg = new THREE.Vector3(0, -.05, .05), up = new THREE.Vector3(0, 1, 0);
+  const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(tg, lp, up));   // sumbu +z menuju lukisan
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(.04, .04, .9), metalDark); arm.position.set(0, lampY + .1, .4); g.add(arm);
+  const head = new THREE.Group(); head.position.copy(lp); head.quaternion.copy(q); g.add(head);
+  head.add(new THREE.Mesh(new THREE.CylinderGeometry(.1, .07, .22, 16).rotateX(Math.PI / 2), metalDark));
+  const lens = new THREE.Mesh(new THREE.CircleGeometry(.085, 16), fixOn); lens.position.z = .112; head.add(lens);
+  const L = lp.distanceTo(tg), beamG = new THREE.CylinderGeometry(.03, 1.2, L, 28, 1, true); beamG.translate(0, -L / 2, 0); beamG.rotateX(-Math.PI / 2);
+  const beam = new THREE.Mesh(beamG, new THREE.MeshBasicMaterial({ color: 0xfff1c8, transparent: true, opacity: .08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  beam.userData.own = true; head.add(beam);
+}
+
 export function buildMuseum(layout) {
   clearRoot();
   const m = analyze(layout); Object.assign(museum, m, { layout });
@@ -78,18 +132,25 @@ export function buildMuseum(layout) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(dx, dz) + WALL_T, H, WALL_T), wallM);
     mesh.position.set((w.x1 + w.x2) / 2, H / 2, (w.z1 + w.z2) / 2); mesh.rotation.y = -Math.atan2(dz, dx); root.add(mesh);
   });
-  const b = m.bounds, lights = [];                                 // lampu tiap ~6 m di dalam lantai
-  for (let x = b.minx + 3; x < b.maxx && lights.length < 10; x += 6)
-    for (let z = b.minz + 3; z < b.maxz && lights.length < 10; z += 6) if (inFloor(m, x, z)) lights.push([x, z]);
-  if (!lights.length) lights.push([(b.minx + b.maxx) / 2, (b.minz + b.maxz) / 2]);
-  lights.forEach(([x, z]) => { const p = new THREE.PointLight(0xfff1dc, .5, 14); p.position.set(x, H - .4, z); root.add(p); });
-  layout.frames.forEach(f => {                                     // bingkai
+  (layout.doors || []).forEach(d => {                              // ambang atas pintu
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W, H - 2.5, WALL_T), wallM);
+    lintel.position.set(d.x, 2.5 + (H - 2.5) / 2, d.z); lintel.rotation.y = d.a; root.add(lintel);
+  });
+  let on = 0;                                                      // lampu ruangan (yang mati tetap terlihat sebagai fitting gelap)
+  m.lights.forEach(L => {
+    if (!inFloor(m, L.x, L.z)) return;
+    const fx = new THREE.Mesh(new THREE.CylinderGeometry(.28, .28, .06, 20), L.on ? fixOn : fixOff); fx.position.set(L.x, H - .03, L.z); root.add(fx);
+    if (L.on && on < MAX_LIGHTS) { on++; const p = new THREE.PointLight(0xfff1dc, .9, 16); p.position.set(L.x, H - .4, L.z); root.add(p); }
+  });
+  layout.frames.forEach(f => {                                     // bingkai + papan nama + lampu sorot
     const e = ensureEntry(f.id), g = new THREE.Group();
     g.position.set(f.x + Math.sin(f.a) * FRAME_OFF, 2, f.z + Math.cos(f.a) * FRAME_OFF); g.rotation.y = f.a;
-    const fm = new THREE.Mesh(new THREE.BoxGeometry(2.7, 2, .1), new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: .5 }));
-    fm.material.userData = {}; fm.userData.own = true; g.add(fm);
-    const pm = new THREE.MeshBasicMaterial({ map: e.tex }), p = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.7), pm);
-    p.position.z = .06; p.userData.i = f.id; p.userData.own = true; g.add(p); root.add(g);
-    e.frameMesh = fm; pics.push(p);
+    const holder = new THREE.Group(); g.add(holder); e.frameMesh = holder;
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.7), new THREE.MeshBasicMaterial({ map: e.tex }));
+    p.position.z = .06; p.userData.i = f.id; p.userData.own = true; g.add(p);
+    e.plSide = f.pl || 'b'; e.plaque = null; if (e.plSide !== 'n') addPlaque(g, e);
+    setFrameStyle(f.id); drawPlaque(f.id);
+    if (f.sp) addSpot(g, e.ey);
+    root.add(g); pics.push(p);
   });
 }

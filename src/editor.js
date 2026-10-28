@@ -41,7 +41,7 @@ function draw() {
   preview();
 }
 function preview() {   // filter + warna bingkai ditampilkan lewat CSS
-  const f = FILTERS.find(x => x.id === data().filter), s = FRAME_STYLES.find(x => x.id === data().frame);
+  const f = FILTERS.find(x => x.id === data().filter), s = FRAME_STYLES.find(x => x.id === data().frame) || FRAME_STYLES[0];
   cv.style.filter = f ? f.css : 'none'; cv.style.outlineColor = hex(s.color);
 }
 function apply() {

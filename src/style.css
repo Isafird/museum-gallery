@@ -111,3 +111,7 @@ body:not(.playing) #bar,body:not(.playing) #dot,body:not(.playing) #hint{display
 
 .card{max-height:calc(100dvh - 24px);gap:13px;padding:18px 20px 14px}
 .card section{gap:8px}
+
+#plprops{display:flex;gap:8px;padding:6px 10px;align-items:center;flex-wrap:wrap;flex:none;min-height:46px;box-sizing:border-box;background:#14161a;border-top:1px solid #23272e}
+#plprops label{flex-direction:row;align-items:center;gap:6px}
+#pinfo{min-height:2.8em;box-sizing:border-box}
