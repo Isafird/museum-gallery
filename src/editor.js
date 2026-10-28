@@ -1,7 +1,7 @@
 import { state } from './state.js';
 import { entries } from './gallery.js';
 import { FILTERS, FRAME_STYLES } from './config.js';
-import { getSource, update, updateTitle, replacePhoto, resetEntry } from './photos.js';
+import { getSource, update, updateTitle, replacePhoto, resetEntry, saveAll, hasPending } from './photos.js';
 import { isLocked, lockCursor } from './cursor.js';
 
 const $ = id => document.getElementById(id);
@@ -16,13 +16,21 @@ export function openEditor(i) {
   idx = i; state.viewing = true; state.relock = isLocked(); if (state.relock) document.exitPointerLock();
   ed.classList.add('open'); ttl.value = entries[i].title; tab = ''; cropping = false; sel = null; showSel();
   const can = state.access.canEdit; $('tools').style.display = can ? '' : 'none'; $('ro').style.display = can ? 'none' : ''; ttl.readOnly = !can;
+  $('edsave').style.display = can ? '' : 'none'; $('edstat').style.display = can ? '' : 'none'; setStat(hasPending() ? 'pending' : 'saved');
   draw(); fit(); panel();
 }
 export function closeEditor() {
   if (!state.viewing) return;
   cropping = false; ed.classList.remove('open'); state.viewing = false;
+  if (hasPending()) saveAll();                       // simpan yang belum tersimpan
   if (state.relock) lockCursor();
 }
+
+// ---------- status simpan ----------
+const LABEL = { saved: 'Tersimpan ✓', pending: 'Belum tersimpan...', saving: 'Menyimpan...', error: 'Gagal menyimpan' };
+function setStat(st) { const el = $('edstat'); el.textContent = LABEL[st] || ''; el.dataset.s = st; }
+addEventListener('save-status', e => setStat(e.detail));
+$('edsave').onclick = () => saveAll();
 
 // ---------- gambar di editor ----------
 function draw() {

@@ -1,6 +1,7 @@
 import { state } from './state.js';
 import { renderer } from './scene.js';
-import { interact, toggleCam, toggleHelp } from './ui.js';
+import { interact, toggleCam, toggleHelp, goMenu } from './ui.js';
+import { saveAll } from './photos.js';
 import { openMembers } from './online.js';
 import { openPlan, planKey } from './plan.js';
 import { openModal, toggleModal } from './modal.js';
@@ -19,6 +20,7 @@ const canvas = renderer.domElement;
 // ---- Keyboard (daftar shortcut ada di bantuan [H] dan README) ----
 addEventListener('keydown', e => {
   if (!state.active) return;
+  if ((e.ctrlKey || e.metaKey) && e.code === 'KeyS') { e.preventDefault(); if (document.activeElement) document.activeElement.blur(); saveAll(); return; }   // Ctrl+S: simpan semua
   if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) {          // sedang mengetik
     if (e.code === 'Escape' || (e.code === 'Enter' && e.target.id === 'ttl')) e.target.blur();
     return;
@@ -35,6 +37,7 @@ addEventListener('keydown', e => {
   else if (e.code === 'KeyH') toggleHelp();
   else if (e.code === 'KeyM') openMembers();
   else if (e.code === 'KeyL') openPlan();
+  else if (e.code === 'KeyQ') goMenu();
 });
 addEventListener('keyup', e => { keys[e.code] = 0; });
 

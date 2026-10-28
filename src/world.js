@@ -1,7 +1,8 @@
 import { state } from './state.js';
-import { buildMuseum, museum, walkable } from './gallery.js';
-import { applyFrame, render, saveLayout, dropFrames } from './photos.js';
-import { normalizeLayout, findSpawn } from './layout.js';
+import { buildMuseum, museum, walkable, entries } from './gallery.js';
+import { applyFrame, render, saveLayout, dropFrames, useStore, clearView, initPhotos } from './photos.js';
+import { normalizeLayout, findSpawn, defaultLayout } from './layout.js';
+import * as db from './db.js';
 import { toast } from './toast.js';
 
 // Pasang denah baru ke dunia 3D
@@ -17,4 +18,15 @@ export async function commitLayout(next) {
   if (!(await saveLayout(next))) { toast('Gagal menyimpan denah (periksa koneksi atau hak akses)'); return false; }
   if (gone.length) dropFrames(gone);
   applyLayout(next); toast('Denah tersimpan'); return true;
+}
+
+// Galeri lokal: denah dan foto dari database di browser
+export async function loadLocal() {
+  useStore(db); state.online = false;
+  state.access = { role: 'local', canEdit: true, canManage: true, visibility: 'public' };
+  entries.forEach((_, i) => clearView(i));
+  const l = await db.loadLayout();
+  if (state.online) return;                     // sementara itu sudah pindah ke galeri online
+  applyLayout(l || defaultLayout());
+  await initPhotos();
 }

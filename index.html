@@ -7,29 +7,44 @@
 </head>
 <body>
 <div id="start"><div class="card">
-  <h1>Museum Foto</h1>
-  <label>Nama<input id="nm" maxlength="14"></label>
-  <div class="row">
-    <label>Kulit<input type="color" id="c1"></label>
-    <label>Baju<input type="color" id="c2"></label>
-    <label>Celana<input type="color" id="c3"></label>
-  </div>
-  <label>Topi<select id="hat"></select></label>
-  <label>Kode room (kosongkan untuk main sendiri)<input id="room" maxlength="20" placeholder="contoh: kelas-a"></label>
-  <div id="acct" class="cloudonly">
-    <button id="signin" class="chip">Masuk dengan Google</button>
-    <span id="who" class="s"></span>
-    <div id="emailrow"><input id="email" type="email" placeholder="email untuk link masuk" aria-label="Email"><button id="emailbtn" class="chip">Kirim link masuk</button></div>
-  </div>
-  <p class="s cloudonly">Kode room yang sama dipakai untuk multiplayer dan galeri online. Denah, foto, dan pengaturannya tersimpan di server, dengan peran pemilik, editor, atau hanya lihat. Kosongkan kode untuk galeri lokal.</p>
+  <header>
+    <h1>Museum Foto</h1>
+    <p class="sub">Jelajahi galeri 3D, pasang fotomu, dan ajak teman.</p>
+  </header>
+
+  <section>
+    <h2>Karakter</h2>
+    <label>Nama<input id="nm" maxlength="14" autocomplete="off"></label>
+    <div class="row">
+      <label>Kulit<input type="color" id="c1"></label>
+      <label>Baju<input type="color" id="c2"></label>
+      <label>Celana<input type="color" id="c3"></label>
+    </div>
+    <label>Topi<select id="hat"></select></label>
+  </section>
+
+  <section>
+    <h2>Galeri</h2>
+    <div id="mode" class="seg"><button id="m-local">Lokal</button><button id="m-online">Online</button></div>
+    <p class="s" id="m-desc"></p>
+    <div id="acct" class="onlyonline">
+      <span id="who" class="s"></span>
+      <button id="signin" class="chip">Masuk dengan Google</button>
+      <div id="emailrow"><input id="email" type="email" placeholder="email untuk link masuk" aria-label="Email"><button id="emailbtn" class="chip">Kirim link masuk</button></div>
+    </div>
+    <label><span id="room-t">Kode room</span><input id="room" maxlength="30" placeholder="contoh: museum-isa" autocomplete="off"></label>
+    <div id="recent" class="onlyonline"></div>
+    <div id="peek" class="s onlyonline"></div>
+  </section>
+
   <button id="go">Masuk galeri</button>
-  <p class="s"><a href="?cek" style="color:var(--ac)">Cek koneksi Supabase</a></p>
-  <p class="s">Di dalam galeri, tekan H untuk melihat semua shortcut. Klik sebuah foto untuk mengganti, memberi filter, crop, atau frame.</p>
+  <footer class="s">Di dalam galeri: H bantuan, Q kembali ke menu, Ctrl+S simpan. <a href="?cek">Cek koneksi Supabase</a></footer>
 </div></div>
 
 <div id="hud"></div>
 <div id="badge"></div>
 <div id="bar">
+  <button id="menubtn">Menu [Q]</button>
   <button id="cambtn">Kamera: orang pertama [V]</button>
   <button id="curbtn">Kursor [Tab]</button>
   <button id="helpbtn">Bantuan [H]</button>
@@ -43,6 +58,8 @@
   <div id="edtop">
     <input id="ttl" maxlength="40" aria-label="Judul foto">
     <span id="ro" class="s" style="display:none">Hanya lihat</span>
+    <span id="edstat" class="s">Tersimpan ✓</span>
+    <button id="edsave" class="chip primary">Simpan <kbd>Ctrl+S</kbd></button>
     <button id="edclose" class="tool">Tutup <kbd>Esc</kbd></button>
   </div>
   <div id="stage">
@@ -71,6 +88,8 @@
     <kbd>H</kbd><span>Buka atau tutup bantuan ini</span>
     <kbd>L</kbd><span>Buka editor denah museum (pemilik)</span>
     <kbd>M</kbd><span>Atur akses galeri online (pemilik)</span>
+    <kbd>Q</kbd><span>Kembali ke menu awal (perubahan disimpan dulu)</span>
+    <kbd>Ctrl+S</kbd><span>Simpan semua perubahan sekarang</span>
   </div>
   <h2>Editor foto</h2>
   <div class="grid">

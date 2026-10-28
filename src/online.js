@@ -4,7 +4,7 @@ import { entries } from './gallery.js';
 import { useStore, clearView, applyRemote } from './photos.js';
 import { toast } from './toast.js';
 import { toggleModal } from './modal.js';
-import { applyLayout } from './world.js';
+import { applyLayout, loadLocal } from './world.js';
 import { normalizeLayout, defaultLayout } from './layout.js';
 
 const $ = id => document.getElementById(id);
@@ -53,6 +53,13 @@ export function startOnline(code) {
     onRemove: i => applyRemote(i, { ph: 0 }),
     onError: e => toast('Galeri online bermasalah: ' + (e.code || e.message)),
   });
+}
+
+// Kembali ke menu: tutup room online dan muat lagi galeri lokal
+export async function stopOnline() {
+  if (!state.online) return;
+  cloud.closeRoom(); $('badge').style.display = 'none'; $('membtn').style.display = 'none'; $('plnbtn').style.display = '';
+  await loadLocal();
 }
 
 function onAccess(a) {

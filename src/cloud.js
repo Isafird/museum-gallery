@@ -33,6 +33,18 @@ function teardown(s) { if (s && s.ch) { sb.removeChannel(s.ch); s.ch = null; } }
 export function openRoom(code, handlers) { closeRoom(); S = { id: roomId(code), h: handlers, ch: null, access: null }; evaluate(); }
 export function closeRoom() { teardown(S); S = null; }
 
+// Intip status room tanpa membuat atau mengubah apa pun (untuk layar awal)
+export async function peekRoom(code) {
+  const id = roomId(code); if (!id) return null;
+  const { data: room, error } = await sb.from('rooms').select('id,owner,visibility').eq('id', id).maybeSingle();
+  if (error) throw error;
+  if (!room) return { exists: false };
+  let role = 'none';
+  if (user && room.owner === user.uid) role = 'owner';
+  else if (user) { const { data: m } = await sb.from('members').select('role').eq('room_id', id).eq('email', user.email).maybeSingle(); if (m) role = m.role; }
+  return { exists: true, visibility: room.visibility, role };
+}
+
 async function evaluate() {
   if (!S) return;
   const s = S, my = ++seq; teardown(s);

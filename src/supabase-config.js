@@ -5,7 +5,7 @@
 // Cara login yang ditampilkan. Matikan yang tidak kamu siapkan di Supabase (Authentication > Providers).
 export const loginMethods = { google: true, email: false };   // email: true menampilkan login lewat link email
 export const supabaseConfig = {
-  url: 'https://yxzhtuvoprtyniuauoml.supabase.co/rest/v1/',
-  anonKey: 'sb_publishable_JIMPnsKaTPqbhxHgkLZy1A_yFFemNEF',
+  url: '',
+  anonKey: '',
 };
 export const cloudEnabled = !!(supabaseConfig.url && supabaseConfig.anonKey);

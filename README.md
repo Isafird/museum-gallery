@@ -49,6 +49,8 @@ npm run dev
 | Tab | Tampilkan / sembunyikan kursor |
 | E atau klik | Buka foto yang dibidik |
 | L | Editor denah |
+| Q | Kembali ke menu awal (perubahan disimpan dulu) |
+| Ctrl+S | Simpan semua perubahan sekarang |
 | H | Bantuan |
 
 Di editor foto: `U` ganti foto, `F` filter berikutnya, `B` frame berikutnya, `C` crop (Enter untuk menerapkan), `+` `-` `0` zoom, `Esc` tutup.

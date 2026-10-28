@@ -54,8 +54,6 @@ kbd{font:inherit;font-size:11px;opacity:.8;margin-left:6px;border:1px solid curr
 
 .cloudonly{display:none}
 body.cloud .cloudonly{display:revert}
-body.cloud #acct{display:flex}
-#acct{align-items:center;gap:10px;flex-wrap:wrap}
 #emailrow{display:flex;gap:8px;width:100%}
 #emailrow input{flex:1;min-width:0}
 #badge{position:fixed;top:calc(env(safe-area-inset-top,0px) + 52px);left:10px;z-index:4;background:rgba(22,24,29,.75);padding:6px 12px;border-radius:8px;font-size:13px;max-width:min(420px,80vw);display:none}
@@ -80,3 +78,36 @@ body.cloud #acct{display:flex}
 .dr{background:#1a1d23;border-radius:8px;padding:10px 14px;font-size:14px;border-left:4px solid #3a3e48}
 .dr.ok{border-color:#3fb950}.dr.bad{border-color:#e5484d}.dr.info{border-color:#8fb4d9}
 .dr .s{margin-top:4px;overflow-wrap:anywhere}
+
+/* layar awal */
+#start{background:linear-gradient(90deg,rgba(15,17,21,.95) 0,rgba(15,17,21,.85) 400px,rgba(15,17,21,0) 680px)}
+.card{width:min(390px,100%);gap:16px;padding:22px 22px 18px;background:rgba(26,29,35,.94);border:1px solid #2c3038;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.45);backdrop-filter:blur(6px)}
+.card header{display:flex;flex-direction:column;gap:4px}
+.card h1{margin:0}
+.sub{margin:0;color:var(--mut);font-size:14px}
+.card section{display:flex;flex-direction:column;gap:10px}
+.card h2{font:600 11px/1 system-ui,sans-serif;letter-spacing:.09em;text-transform:uppercase;color:var(--mut);margin:0}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:3px;background:#14161a;border-radius:10px;padding:3px}
+.seg button{background:transparent;color:var(--mut);padding:8px;font-weight:500}
+.seg button.on{background:var(--ac);color:#10161d}
+#acct{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#acct .s{flex:1 1 100%}
+#acct:has(#who:empty) .s{display:none}
+#emailrow{display:flex;gap:6px;flex:1 1 100%}
+#emailrow input{flex:1;min-width:0}
+#recent{display:flex;gap:6px;flex-wrap:wrap}
+#recent:empty{display:none}
+#peek{min-height:1.2em}
+.ok{color:#5fd08a}.warn{color:#f0b35c}
+#go{padding:13px;font-size:16px}
+.card footer{line-height:1.5}
+.card footer a{color:var(--ac)}
+#edstat{white-space:nowrap;align-self:center}
+#edstat[data-s=saved]{color:#5fd08a}#edstat[data-s=error]{color:#e5484d}#edstat[data-s=pending],#edstat[data-s=saving]{color:#f0b35c}
+@media(max-width:700px){#start{align-items:flex-end;padding:8px;background:linear-gradient(0deg,rgba(15,17,21,.96) 55%,rgba(15,17,21,0))}.card{max-height:72%;padding:16px 16px 14px;gap:12px}}
+
+/* tombol dan titik bidik hanya tampil saat di dalam galeri */
+body:not(.playing) #bar,body:not(.playing) #dot,body:not(.playing) #hint{display:none}
+
+.card{max-height:calc(100dvh - 24px);gap:13px;padding:18px 20px 14px}
+.card section{gap:8px}

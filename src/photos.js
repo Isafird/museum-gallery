@@ -31,17 +31,36 @@ export function render(i) {
   g.filter = 'none'; e.tex.needsUpdate = true;
 }
 
-const timers = {};
-function persist(i) {
-  clearTimeout(timers[i]);
-  timers[i] = setTimeout(async () => {
-    const e = entries[i], d = e.data, changed = !!e.dirtyPhoto, oldPh = e.ph || 0, ph = changed ? Date.now() : oldPh;
-    if (changed) e.ph = ph;                      // tandai dulu supaya gema dari server tidak mengunduh ulang
-    const ok = await store.save({ id: i, blob: d.blob, crop: d.crop, filter: d.filter, frame: d.frame, title: e.title, ph, oldPh, photoChanged: changed });
-    if (ok && changed) e.dirtyPhoto = false; else if (!ok && changed) e.ph = oldPh;
-    toast(ok ? 'Tersimpan' : 'Gagal menyimpan (periksa koneksi atau hak akses)');
-  }, 300);
+const timers = {}, inflight = new Set();
+const status = st => dispatchEvent(new CustomEvent('save-status', { detail: st }));   // 'pending' | 'saving' | 'saved' | 'error'
+const busy = () => Object.keys(timers).length > 0 || inflight.size > 0;
+async function doSave(i) {
+  const e = entries[i]; if (!e) return true;
+  const d = e.data, changed = !!e.dirtyPhoto, oldPh = e.ph || 0, ph = changed ? Date.now() : oldPh;
+  if (changed) e.ph = ph;                      // tandai dulu supaya gema dari server tidak mengunduh ulang
+  inflight.add(i); status('saving');
+  const ok = await store.save({ id: i, blob: d.blob, crop: d.crop, filter: d.filter, frame: d.frame, title: e.title, ph, oldPh, photoChanged: changed });
+  inflight.delete(i);
+  if (ok && changed) e.dirtyPhoto = false; else if (!ok && changed) e.ph = oldPh;
+  status(!ok ? 'error' : busy() ? 'pending' : 'saved');
+  return ok;
 }
+function persist(i) {                          // simpan otomatis 0,8 detik setelah perubahan terakhir
+  clearTimeout(timers[i]); status('pending');
+  timers[i] = setTimeout(async () => { delete timers[i]; if (!(await doSave(i))) toast('Gagal menyimpan (periksa koneksi atau hak akses)'); }, 800);
+}
+export const hasPending = busy;
+// Simpan sekarang juga semua perubahan yang masih menunggu
+export async function flushSaves() {
+  const ids = Object.keys(timers).map(Number); ids.forEach(i => { clearTimeout(timers[i]); delete timers[i]; });
+  const ok = (await Promise.all(ids.map(doSave))).every(Boolean);
+  while (inflight.size) await new Promise(r => setTimeout(r, 50));     // tunggu penyimpanan yang sedang berjalan
+  status(ok ? 'saved' : 'error'); return ok;
+}
+export async function saveAll() {
+  const ok = await flushSaves(); toast(ok ? 'Tersimpan' : 'Gagal menyimpan (periksa koneksi atau hak akses)'); return ok;
+}
+addEventListener('beforeunload', e => { if (busy()) { e.preventDefault(); e.returnValue = ''; } });   // jangan tutup halaman saat belum tersimpan
 
 export function update(i, patch) {
   if (!canEdit()) return;

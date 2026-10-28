@@ -48,6 +48,13 @@ export function connect(code) {
   });
 }
 
+// Keluar dari room (kembali ke menu): tutup koneksi dan hapus pemain lain dari layar
+export function disconnect() {
+  try { selfPeer && selfPeer.destroy(); } catch (e) {}
+  selfPeer = null; conns = []; hostConn = null; isHost = false; room = '';
+  [...others.keys()].forEach(remove); document.getElementById('hud').textContent = '';
+}
+
 // Kirim posisi 10x per detik + bersihkan pemain yang diam > 6 detik + update HUD
 setInterval(() => {
   const now = performance.now();

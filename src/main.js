@@ -3,17 +3,20 @@ import './style.css';
 import { renderer, scene, camera } from './scene.js';
 import { state } from './state.js';
 import { ROOM, SPEED } from './config.js';
-import { pics, walkable } from './gallery.js';
+import { pics, walkable, museum } from './gallery.js';
 import { makeAvatar, animateAvatar } from './avatar.js';
-import { connect, updateOthers } from './network.js';
+import { connect, disconnect, updateOthers } from './network.js';
 import { keys, mv } from './controls.js';
-import { initUI, setHint } from './ui.js';
-import { initPhotos } from './photos.js';
+import { initUI, setHint, showStart } from './ui.js';
+import { closeEditor } from './editor.js';
+import { openModal, toggleModal } from './modal.js';
+import { toast } from './toast.js';
+import { findSpawn } from './layout.js';
+import { flushSaves } from './photos.js';
 import { lockCursor } from './cursor.js';
-import { initOnline, startOnline } from './online.js';
-import { applyLayout } from './world.js';
+import { initOnline, startOnline, stopOnline } from './online.js';
+import { applyLayout, loadLocal } from './world.js';
 import { defaultLayout } from './layout.js';
-import * as db from './db.js';
 
 const { H } = ROOM;
 const { P } = state;
@@ -24,10 +27,24 @@ applyLayout(defaultLayout());          // denah bawaan dulu, denah tersimpan dim
 rebuildMe();
 initUI({
   onLook: rebuildMe,
-  onStart: code => { state.active = true; camera.clearViewOffset(); lockCursor(); if (code) { connect(code); startOnline(code); } },
+  onStart: (code, online) => { state.active = true; camera.clearViewOffset(); lockCursor(); if (code) connect(code); if (online) startOnline(code); },
+  onMenu: backToMenu,
 });
 initOnline();
-db.loadLayout().then(l => { if (l && !state.online) applyLayout(l); initPhotos(); });   // mode lokal: muat denah dan foto tersimpan
+loadLocal();                           // mode lokal: muat denah dan foto tersimpan di browser
+
+// Kembali ke menu awal: simpan dulu, tutup semua panel, keluar dari room
+async function backToMenu() {
+  if (!state.active) return;
+  await flushSaves();
+  closeEditor(); const md = openModal(); if (md) toggleModal(md);
+  if (document.pointerLockElement) document.exitPointerLock();
+  Object.keys(keys).forEach(k => { keys[k] = 0; }); mv.x = mv.y = 0;
+  state.active = false; state.viewing = false; state.target = -1; state.cursorFree = false;
+  disconnect(); await stopOnline();
+  P.x = -12; P.z = 7; if (!walkable(P.x, P.z, .45)) { const s = findSpawn(museum); P.x = s[0]; P.z = s[1]; }
+  showStart(); toast('Kembali ke menu awal');
+}
 
 if (location.search.includes('debug')) window.__s = { state };   // hook untuk pengujian otomatis (tambahkan ?debug ke alamat)
 if (new URLSearchParams(location.search).has('cek')) import('./diagnose.js').then(m => m.run());   // halaman diagnosis Supabase
