@@ -26,10 +26,23 @@ function onData(d, from) {
   else if (d.t === 'l') remove(d.id);
 }
 
+// Server relay (TURN) supaya pemain di jaringan berbeda (mis. iPhone di data seluler) tetap bisa tersambung
+const ICE = {
+  config: {
+    iceServers: [
+      { urls: 'stun:stun.relay.metered.ca:80' },
+      { urls: 'turn:global.relay.metered.ca:80', username: '5ea49240394fd8231d0e251e', credential: 'VOs3KJVGXN8I4hXZ' },
+      { urls: 'turn:global.relay.metered.ca:80?transport=tcp', username: '5ea49240394fd8231d0e251e', credential: 'VOs3KJVGXN8I4hXZ' },
+      { urls: 'turn:global.relay.metered.ca:443', username: '5ea49240394fd8231d0e251e', credential: 'VOs3KJVGXN8I4hXZ' },
+      { urls: 'turns:global.relay.metered.ca:443?transport=tcp', username: '5ea49240394fd8231d0e251e', credential: 'VOs3KJVGXN8I4hXZ' },
+    ]
+  }
+};
+
 export function connect(code) {
   room = code;
   const hid = PEER_PREFIX + code.toLowerCase().replace(/[^a-z0-9-]/g, '');
-  const p = new Peer(hid); selfPeer = p;                      // coba jadi host
+  const p = new Peer(hid, ICE); selfPeer = p;                      // coba jadi host
   p.on('open', id => { isHost = true; myId = id; });
   p.on('connection', c => {
     conns.push(c);
@@ -38,11 +51,11 @@ export function connect(code) {
   });
   p.on('error', e => {
     if (e.type !== 'unavailable-id') { room = ''; return; }
-    const q = new Peer(); selfPeer = q;                        // ID sudah dipakai: gabung sebagai pemain
+    const q = new Peer(undefined, ICE); selfPeer = q;                        // ID sudah dipakai: gabung sebagai pemain
     q.on('open', id => {
       myId = id; hostConn = q.connect(hid);
       hostConn.on('data', d => onData(d));
-      hostConn.on('close', () => { hostConn = null; [...others.keys()].forEach(remove); room = ''; });
+      hostConn.on('close', () => { hostConn = null;[...others.keys()].forEach(remove); room = ''; });
     });
     q.on('error', () => { room = ''; });
   });
@@ -50,7 +63,7 @@ export function connect(code) {
 
 // Keluar dari room (kembali ke menu): tutup koneksi dan hapus pemain lain dari layar
 export function disconnect() {
-  try { selfPeer && selfPeer.destroy(); } catch (e) {}
+  try { selfPeer && selfPeer.destroy(); } catch (e) { }
   selfPeer = null; conns = []; hostConn = null; isHost = false; room = '';
   [...others.keys()].forEach(remove); document.getElementById('hud').textContent = '';
 }
@@ -66,7 +79,7 @@ setInterval(() => {
   document.getElementById('hud').textContent = ok
     ? `Room ${room}: ${others.size + 1} pemain` + (isHost ? ' (host)' : '') : `Room ${room}: menghubungkan...`;
 }, 100);
-addEventListener('pagehide', () => { try { selfPeer && selfPeer.destroy(); } catch (e) {} });
+addEventListener('pagehide', () => { try { selfPeer && selfPeer.destroy(); } catch (e) { } });
 
 // Dipanggil tiap frame: gerakkan pemain lain dengan halus
 export function updateOthers(dt, t) {
