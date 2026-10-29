@@ -7,7 +7,7 @@
 //   doors:    { x, z, a }             pintu di dinding (lebar DOOR_W); menyatukan ruang di kedua sisinya
 //   lights:   [{ x, z, on }]          lampu ruangan (kalau kosong dibuat otomatis)
 // Semua fungsi di sini murni (tanpa THREE) sehingga dipakai editor 2D dan tampilan 3D.
-export const MAX_FRAMES = 40, MAX_LIGHTS = 12, WALL_T = .3, FRAME_OFF = .2, FRAME_W = 2.7, DOOR_W = 2.4, DOOR_D = 1.2;
+export const MAX_FRAMES = 100, MAX_LIGHTS = 30, AUTO_LIGHTS = 12, WALL_T = .3, FRAME_OFF = .2, FRAME_W = 2.7, DOOR_W = 2.4, DOOR_D = 1.2;
 
 const circle = Array.from({ length: 40 }, (_, i) => { const t = i / 40 * 2 * Math.PI; return [.5 + .5 * Math.cos(t), .5 + .5 * Math.sin(t)]; });
 export const TEMPLATES = {
@@ -150,7 +150,7 @@ export function autoLights(m) {
     const out = [];
     for (let x = b.minx + s / 2; x < b.maxx; x += s) for (let z = b.minz + s / 2; z < b.maxz; z += s)
       if (inFloor(m, x, z)) out.push({ x: Math.round(x * 2) / 2, z: Math.round(z * 2) / 2, on: true });
-    if (out.length && out.length <= MAX_LIGHTS) return out;
+    if (out.length && out.length <= AUTO_LIGHTS) return out;
   }
   return [{ x: Math.round((b.minx + b.maxx)), z: Math.round((b.minz + b.maxz)), on: true }].map(l => ({ x: l.x / 2, z: l.z / 2, on: true }));
 }

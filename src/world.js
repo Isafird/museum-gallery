@@ -20,6 +20,13 @@ export async function commitLayout(next) {
   applyLayout(next); toast('Denah tersimpan'); return true;
 }
 
+// Ubah orientasi bingkai (mendatar / tegak). Disimpan di denah, jadi hanya yang boleh mengatur denah.
+export async function setFrameOrient(id, vertical) {
+  const next = JSON.parse(JSON.stringify(state.layout)), f = next.frames.find(x => x.id === id); if (!f) return false;
+  if (vertical) f.o = 'v'; else delete f.o;
+  return commitLayout(next);
+}
+
 // Galeri lokal: denah dan foto dari database di browser
 export async function loadLocal() {
   useStore(db); state.online = false;

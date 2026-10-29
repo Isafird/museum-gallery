@@ -203,6 +203,7 @@ function renderProps() {
     const lab = document.createElement('label'); lab.textContent = 'Papan nama';
     const s = document.createElement('select'); [['b', 'Di bawah lukisan'], ['t', 'Di atas lukisan'], ['n', 'Tanpa papan nama']].forEach(([v, n]) => s.add(new Option(n, v)));
     s.value = o.pl || 'b'; s.onchange = () => { const v = s.value, i = sel.i; commit(() => { work.frames[i].pl = v; }); s.blur(); }; lab.append(s); box.append(lab);
+    chip(o.o === 'v' ? 'Bingkai: tegak' : 'Bingkai: mendatar', () => { const i = sel.i; commit(() => { if (work.frames[i].o === 'v') delete work.frames[i].o; else work.frames[i].o = 'v'; }); }, o.o === 'v');
     chip(o.sp ? 'Lampu sorot: nyala' : 'Lampu sorot: tidak ada', () => { const i = sel.i; commit(() => { work.frames[i].sp = !work.frames[i].sp; }); }, o.sp);
   } else if (sel.t === 'light') {
     label('Lampu ruangan'); chip(o.on ? 'Menyala (klik untuk mematikan)' : 'Mati (klik untuk menyalakan)', toggleLight, o.on); label('Spasi = nyala/mati');
@@ -320,7 +321,7 @@ function drawNow() {
   });
   work.frames.forEach(f => {                                                                   // bingkai
     const nx = Math.sin(f.a), nz = Math.cos(f.a), tx = nz, tz = -nx, ok = frameOnWall(f, m), cx = f.x + nx * .3, cz = f.z + nz * .3;
-    g.strokeStyle = ok ? '#8fb4d9' : '#e5484d'; g.lineWidth = .22; line(cx - tx * FRAME_W / 2, cz - tz * FRAME_W / 2, cx + tx * FRAME_W / 2, cz + tz * FRAME_W / 2);
+    const fw = f.o === 'v' ? 2.1 : FRAME_W; g.strokeStyle = ok ? '#8fb4d9' : '#e5484d'; g.lineWidth = f.o === 'v' ? .3 : .22; line(cx - tx * fw / 2, cz - tz * fw / 2, cx + tx * fw / 2, cz + tz * fw / 2);
     if (f.sp) { g.fillStyle = '#ffe066'; g.beginPath(); g.arc(f.x + nx * 1.05, f.z + nz * 1.05, .17, 0, 7); g.fill(); }
     g.fillStyle = '#fff'; g.font = '.7px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(f.id + 1, f.x + nx * .72 + (f.sp ? tx * .55 : 0), f.z + nz * .72 + (f.sp ? tz * .55 : 0));
   });

@@ -24,6 +24,8 @@ npm run dev
 | `src/network.js` | Multiplayer (host + relay lewat PeerJS) |
 | `src/fullscreen.js` | Tombol layar penuh (iPhone: lewat Tambah ke Layar Utama, lihat `public/manifest.webmanifest`) |
 | `src/frametex.js` | Tekstur motif bingkai (serat kayu, emas berukir, bintik, dll), digambar dengan canvas |
+| `src/filters.js` | Filter foto per-piksel + penyesuaian manual (kecerahan, kontras, suhu, dll.) |
+| `src/framepreview.js` | Pratinjau bingkai asli (3D) di editor foto |
 | `src/chat.js` | Kotak chat dan riwayat (gelembung di atas kepala ada di `avatar.js`, pengiriman di `network.js`) |
 | `src/controls.js` | Keyboard, mouse, sentuh |
 | `src/ui.js` | Formulir karakter, tombol atas, bantuan |
@@ -74,8 +76,8 @@ Tekan **L** (atau tombol "Denah") untuk membuka editor denah. Pada galeri online
 - **Menggabung:** bentuk yang bertumpuk atau bersebelahan menyatu menjadi satu ruang.
 - **Dinding:** seret untuk membuat dinding pembatas di dalam ruangan.
 - **Pintu:** arahkan ke dinding lalu klik. Pintu selebar 2,4 m membuka dinding dan menyambung dua ruangan yang hanya bersentuhan (misalnya lingkaran yang hanya menempel di ujung dinding). Pintu juga bisa dipasang di dinding pembatas.
-- **Bingkai:** arahkan ke dinding lalu klik. Bingkai menempel otomatis dan menghadap ke dalam ruangan. Maksimal 40 bingkai.
-- **Lampu:** klik di lantai untuk menaruh lampu ruangan (maksimal 12).
+- **Bingkai:** arahkan ke dinding lalu klik. Bingkai menempel otomatis dan menghadap ke dalam ruangan. Maksimal 100 bingkai.
+- **Lampu:** klik di lantai untuk menaruh lampu ruangan (maksimal 30; tampilan 3D memakai cahaya asli untuk maksimal 12 lampu terdekat, otomatis dikurangi kalau perangkat berat).
 - **Hapus:** klik bingkai, pintu, lampu, dinding, atau ruangan.
 
 **Memilih dan mengubah objek yang sudah dibuat (alat Pilih)**

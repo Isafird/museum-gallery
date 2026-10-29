@@ -3,6 +3,7 @@ import { scene } from './scene.js';
 import { ROOM, TITLES, DEFAULT_PHOTO, FRAME_STYLES } from './config.js';
 import { analyze, walkable as walk, inFloor, FRAME_OFF, WALL_T, DOOR_W, MAX_LIGHTS } from './layout.js';
 import { buildFrame } from './frames3d.js';
+import { mergeBufferGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 const { H } = ROOM;
 export const entries = [];   // entries[id]: { art, canvas, tex, frameMesh, title, data, bmp }  (id = nomor bingkai)
@@ -15,13 +16,14 @@ scene.add(new THREE.HemisphereLight(0xffffff, 0x6b5a4a, .45));   // cahaya dasar
 const root = new THREE.Group(); scene.add(root);          // seluruh isi museum, dibangun ulang saat denah berubah
 
 // ---- bahan ----
-const wallM = new THREE.MeshStandardMaterial({ color: 0xe4e3df, roughness: .95 });
-const ceilM = new THREE.MeshStandardMaterial({ color: 0xf3f2ee, side: THREE.DoubleSide });
+// Dinding / langit-langit / lantai memakai Lambert: tampilannya hampir sama (permukaan buram) tetapi jauh lebih ringan di GPU saat ada banyak lampu
+const wallM = new THREE.MeshLambertMaterial({ color: 0xe4e3df });
+const ceilM = new THREE.MeshLambertMaterial({ color: 0xf3f2ee, side: THREE.DoubleSide });
 const fc = document.createElement('canvas'); fc.width = fc.height = 256;
 const fg = fc.getContext('2d');
 for (let k = 0; k < 8; k++) { fg.fillStyle = `hsl(25,${35 + Math.random() * 10}%,${24 + Math.random() * 8}%)`; fg.fillRect(0, k * 32, 256, 31); }
 const ft = new THREE.CanvasTexture(fc); ft.wrapS = ft.wrapT = THREE.RepeatWrapping;
-const floorM = new THREE.MeshStandardMaterial({ map: ft, roughness: .6 });
+const floorM = new THREE.MeshLambertMaterial({ map: ft });
 
 // Lantai/langit-langit datar dari poligon (y = tinggi, up = menghadap atas)
 function flatGeo(poly, y, up) {
@@ -54,10 +56,16 @@ function makeArt(i) {
   }
   return c;
 }
+// Bingkai tegak: kanvas foto 680 x 960 (mendatar 960 x 680). Tekstur dibuat ulang karena ukurannya berubah.
+function setOrient(e, vert) {
+  if (e.vert === vert) return;
+  e.vert = vert; e.canvas.width = vert ? 680 : 960; e.canvas.height = vert ? 960 : 680;
+  e.tex.dispose(); e.tex = new THREE.CanvasTexture(e.canvas); e.rendered = false;
+}
 export function ensureEntry(id) {
   if (!entries[id]) {
     const canvas = document.createElement('canvas'); canvas.width = 960; canvas.height = 680;
-    entries[id] = { art: makeArt(id), canvas, tex: new THREE.CanvasTexture(canvas), frameMesh: null, title: defTitle(id), data: { ...DEFAULT_PHOTO }, bmp: null };
+    entries[id] = { art: makeArt(id), canvas, tex: new THREE.CanvasTexture(canvas), vert: false, frameMesh: null, title: defTitle(id), data: { ...DEFAULT_PHOTO }, bmp: null };
   }
   return entries[id];
 }
@@ -99,9 +107,10 @@ export function drawPlaque(i) {
 export function setFrameStyle(i) {
   const e = entries[i]; if (!e || !e.frameMesh) return;
   const h = e.frameMesh; h.children.slice().forEach(c => { h.remove(c); if (c.geometry) c.geometry.dispose(); });
-  buildFrame(h, e.data.frame);
+  buildFrame(h, e.data.frame, e.vert);
   const s = FRAME_STYLES.find(x => x.id === e.data.frame) || FRAME_STYLES[0];
-  e.ey = s.ey; e.eyt = s.eyt || s.ey;
+  const extra = e.vert ? .35 : 0;                      // bingkai tegak lebih tinggi: papan nama dan lampu sorot ikut naik / turun
+  e.ey = s.ey + extra; e.eyt = (s.eyt || s.ey) + extra;
   if (e.plaque) e.plaque.position.set(0, e.plSide === 't' ? e.eyt + .2 : -(e.ey + .2), .03);
 }
 
@@ -120,33 +129,62 @@ function addSpot(g, ey) {
   beam.userData.own = true; head.add(beam);
 }
 
+// ---- lampu ruangan: jumlah cahaya asli (PointLight) dibatasi POOL, karena tiap lampu menambah beban di setiap piksel.
+// Kalau lampu <= POOL semuanya menyala seperti biasa. Kalau lebih banyak, cahaya dipakai bergantian untuk lampu yang paling dekat
+// dengan pemain, dan berpindah dengan memudar halus (tidak ada kedipan). Fitting lampu tetap terlihat semua.
+const LIGHT_I = .9, POOLS = [12, 8, 6, 4];     // mulai 12 (sama seperti sebelumnya); turun otomatis kalau FPS rendah
+let POOL = POOLS[0], lamps = [], slots = [];
+export function lowerLamps() {                  // dipanggil kualitas otomatis: kurangi jumlah cahaya asli. true kalau ada yang berubah
+  const n = POOLS.find(p => p < POOL); if (n === undefined || lamps.length <= n) return false;
+  POOL = n; setupLamps(lamps); return true;
+}
+function setupLamps(list) {
+  slots.forEach(s => root.remove(s.light)); lamps = list; slots = [];
+  for (let i = 0; i < Math.min(POOL, list.length); i++) {
+    const light = new THREE.PointLight(0xfff1dc, LIGHT_I, 16); root.add(light);
+    slots.push({ light, lamp: i, level: 1 }); light.position.set(list[i].x, H - .4, list[i].z);
+  }
+}
+let acc = 1;
+export function updateLamps(dt, px, pz) {
+  if (lamps.length <= POOL) return;
+  const fade = dt * 3; let want = null;
+  acc += dt; if (acc > .25) {                                      // pilih lampu terdekat 4x per detik
+    acc = 0; want = new Set(lamps.map((l, i) => [Math.hypot(l.x - px, l.z - pz), i]).sort((a, b) => a[0] - b[0]).slice(0, POOL).map(a => a[1]));
+    slots.forEach(s => { s.keep = want.has(s.lamp); if (s.keep) want.delete(s.lamp); });
+    slots.forEach(s => { if (!s.keep && s.next === undefined && want.size) { s.next = want.values().next().value; want.delete(s.next); } });
+  }
+  slots.forEach(s => {
+    if (s.next !== undefined && !s.keep) {                         // memudar dulu, pindah saat gelap, lalu menyala lagi
+      s.level = Math.max(0, s.level - fade);
+      if (s.level === 0) { s.lamp = s.next; s.next = undefined; s.keep = true; const l = lamps[s.lamp]; s.light.position.set(l.x, H - .4, l.z); }
+    } else s.level = Math.min(1, s.level + fade);
+    s.light.intensity = LIGHT_I * s.level;
+  });
+}
+
 export function buildMuseum(layout) {
   clearRoot();
   const m = analyze(layout); Object.assign(museum, m, { layout });
-  m.polys.forEach((poly, i) => {                                   // lantai + langit-langit tiap bentuk
-    root.add(new THREE.Mesh(flatGeo(poly, i * .001, true), floorM));
-    root.add(new THREE.Mesh(flatGeo(poly, H - i * .001, false), ceilM));
-  });
-  m.walls.forEach(w => {                                           // dinding
-    const dx = w.x2 - w.x1, dz = w.z2 - w.z1;
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(dx, dz) + WALL_T, H, WALL_T), wallM);
-    mesh.position.set((w.x1 + w.x2) / 2, H / 2, (w.z1 + w.z2) / 2); mesh.rotation.y = -Math.atan2(dz, dx); root.add(mesh);
-  });
-  (layout.doors || []).forEach(d => {                              // ambang atas pintu
-    const lintel = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W, H - 2.5, WALL_T), wallM);
-    lintel.position.set(d.x, 2.5 + (H - 2.5) / 2, d.z); lintel.rotation.y = d.a; root.add(lintel);
-  });
-  let on = 0;                                                      // lampu ruangan (yang mati tetap terlihat sebagai fitting gelap)
+  const merged = (list, mat) => { if (list.length) root.add(new THREE.Mesh(list.length > 1 ? mergeBufferGeometries(list) : list[0], mat)); };
+  merged(m.polys.map((poly, i) => flatGeo(poly, i * .001, true)), floorM);       // lantai + langit-langit: satu mesh per jenis
+  merged(m.polys.map((poly, i) => flatGeo(poly, H - i * .001, false)), ceilM);
+  const solid = (w, h, y, x, z, ry) => { const g = new THREE.BoxGeometry(w, h, WALL_T); g.rotateY(ry); g.translate(x, y, z); return g; };
+  const boxes = m.walls.map(w => { const dx = w.x2 - w.x1, dz = w.z2 - w.z1; return solid(Math.hypot(dx, dz) + WALL_T, H, H / 2, (w.x1 + w.x2) / 2, (w.z1 + w.z2) / 2, -Math.atan2(dz, dx)); });
+  (layout.doors || []).forEach(d => boxes.push(solid(DOOR_W, H - 2.5, 2.5 + (H - 2.5) / 2, d.x, d.z, d.a)));   // ambang atas pintu
+  merged(boxes, wallM);                                            // semua dinding + ambang pintu jadi satu mesh
+  const lamps = [];                                                // lampu ruangan (yang mati tetap terlihat sebagai fitting gelap)
   m.lights.forEach(L => {
     if (!inFloor(m, L.x, L.z)) return;
     const fx = new THREE.Mesh(new THREE.CylinderGeometry(.28, .28, .06, 20), L.on ? fixOn : fixOff); fx.position.set(L.x, H - .03, L.z); root.add(fx);
-    if (L.on && on < MAX_LIGHTS) { on++; const p = new THREE.PointLight(0xfff1dc, .9, 16); p.position.set(L.x, H - .4, L.z); root.add(p); }
+    if (L.on && lamps.length < MAX_LIGHTS) lamps.push({ x: L.x, z: L.z });
   });
+  setupLamps(lamps);
   layout.frames.forEach(f => {                                     // bingkai + papan nama + lampu sorot
-    const e = ensureEntry(f.id), g = new THREE.Group();
+    const e = ensureEntry(f.id), g = new THREE.Group(); setOrient(e, f.o === 'v');
     g.position.set(f.x + Math.sin(f.a) * FRAME_OFF, 2, f.z + Math.cos(f.a) * FRAME_OFF); g.rotation.y = f.a;
     const holder = new THREE.Group(); g.add(holder); e.frameMesh = holder;
-    const p = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.7), new THREE.MeshBasicMaterial({ map: e.tex }));
+    const p = new THREE.Mesh(e.vert ? new THREE.PlaneGeometry(1.7, 2.4) : new THREE.PlaneGeometry(2.4, 1.7), new THREE.MeshBasicMaterial({ map: e.tex }));
     p.position.z = .06; p.userData.i = f.id; p.userData.own = true; g.add(p);
     e.plSide = f.pl || 'b'; e.plaque = null; if (e.plSide !== 'n') addPlaque(g, e);
     setFrameStyle(f.id); drawPlaque(f.id);

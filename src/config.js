@@ -10,14 +10,26 @@ export const TITLES = ['Fajar di Atas Kabut','Sawah Bertingkat','Pelabuhan Senja
 // ---- Editor foto ----
 export const MAX_IMG = 2400;   // sisi terpanjang foto yang disimpan di browser (px)
 export const DEFAULT_PHOTO = { blob: null, crop: null, filter: 'none', frame: 'kayu' };
+// Setiap filter = parameter (lihat filters.js): b kecerahan, c kontras, s saturasi, w suhu, t warna (hijau-magenta), f pudar, v vinyet, g butiran, n ketajaman, sep sepia
 export const FILTERS = [
-  { id: 'none',  name: 'Asli',        css: 'none' },
-  { id: 'bw',    name: 'Hitam putih', css: 'grayscale(1) contrast(1.1)' },
-  { id: 'sepia', name: 'Sepia',       css: 'sepia(.85)' },
-  { id: 'vivid', name: 'Cerah',       css: 'saturate(1.7) contrast(1.08)' },
-  { id: 'cool',  name: 'Dingin',      css: 'hue-rotate(-18deg) saturate(1.1) brightness(1.04)' },
-  { id: 'warm',  name: 'Hangat',      css: 'sepia(.35) saturate(1.35) brightness(1.04)' },
-  { id: 'fade',  name: 'Pudar',       css: 'contrast(.85) brightness(1.1) saturate(.8)' },
+  { id: 'none',    name: 'Asli',          p: {} },
+  { id: 'bw',      name: 'Hitam putih',   p: { s: -100, c: 12 } },
+  { id: 'sepia',   name: 'Sepia',         p: { sep: 85, c: 5 } },
+  { id: 'vivid',   name: 'Cerah',         p: { s: 55, c: 12 } },
+  { id: 'cool',    name: 'Dingin',        p: { w: -35, s: 10, b: 4 } },
+  { id: 'warm',    name: 'Hangat',        p: { w: 35, s: 15, b: 4 } },
+  { id: 'fade',    name: 'Pudar',         p: { f: 45, c: -15, b: 8, s: -20 } },
+  { id: 'vintage', name: 'Vintage',       p: { sep: 35, w: 20, f: 25, c: -8, v: 35, g: 25 } },
+  { id: 'noir',    name: 'Noir',          p: { s: -100, c: 45, b: -8, v: 45 } },
+  { id: 'drama',   name: 'Dramatis',      p: { c: 40, s: 20, b: -10, v: 30 } },
+  { id: 'matte',   name: 'Matte',         p: { f: 55, c: -25, s: -10 } },
+  { id: 'golden',  name: 'Senja emas',    p: { w: 55, s: 25, b: 8, c: 8 } },
+  { id: 'cinema',  name: 'Sinematik',     p: { c: 20, s: -5, w: -15, t: -10, v: 35 } },
+  { id: 'polaroid',name: 'Polaroid',      p: { w: 18, f: 20, c: -5, s: 15, v: 25 } },
+  { id: 'forest',  name: 'Hijau segar',   p: { t: -25, s: 25, c: 8 } },
+  { id: 'bright',  name: 'Terang',        p: { b: 25, c: -8, s: 10 } },
+  { id: 'crisp',   name: 'Tajam',         p: { n: 60, c: 10, s: 8 } },
+  { id: 'soft',    name: 'Lembut',        p: { f: 20, c: -12, b: 8, w: 8 } },
 ];
 // Gaya bingkai. color = warna contoh di pilihan, ey / eyt = setengah tinggi bingkai bawah / atas (untuk posisi papan nama).
 // Bentuk 3D-nya ada di frames3d.js.

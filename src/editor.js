@@ -1,6 +1,9 @@
 import { state } from './state.js';
 import { entries } from './gallery.js';
 import { FILTERS, FRAME_STYLES } from './config.js';
+import { ADJ, parseFilter, stringifyFilter } from './filters.js';
+import { renderFramed } from './framepreview.js';
+import { setFrameOrient } from './world.js';
 import { getSource, update, updateTitle, replacePhoto, resetEntry, saveAll, hasPending } from './photos.js';
 import { isLocked, lockCursor } from './cursor.js';
 import { frameSwatch } from './frametex.js';
@@ -22,7 +25,7 @@ export function openEditor(i) {
 }
 export function closeEditor() {
   if (!state.viewing) return;
-  cropping = false; ed.classList.remove('open'); state.viewing = false;
+  cropping = false; ed.classList.remove('open'); $('adj').classList.remove('open'); state.viewing = false;
   if (hasPending()) saveAll();                       // simpan yang belum tersimpan
   if (state.relock) lockCursor();
 }
@@ -34,20 +37,26 @@ addEventListener('save-status', e => setStat(e.detail));
 $('edsave').onclick = () => saveAll();
 
 // ---------- gambar di editor ----------
-function draw() {
+function drawRaw() {
   const src = getSource(idx), cr = (cropping || !data().crop) ? { x: 0, y: 0, w: 1, h: 1 } : data().crop;
   const sw = src.width * cr.w, sh = src.height * cr.h, k = Math.min(1, 1800 / Math.max(sw, sh));
   cv.width = Math.max(1, Math.round(sw * k)); cv.height = Math.max(1, Math.round(sh * k));
   cv.getContext('2d').drawImage(src, src.width * cr.x, src.height * cr.y, sw, sh, 0, 0, cv.width, cv.height);
-  preview();
 }
-function preview() {   // filter + warna bingkai ditampilkan lewat CSS
-  const f = FILTERS.find(x => x.id === data().filter), s = FRAME_STYLES.find(x => x.id === data().frame) || FRAME_STYLES[0];
-  cv.style.filter = f ? f.css : 'none'; cv.style.outlineColor = hex(s.color);
+// Tampilan utama: bingkai 3D yang sama dengan di galeri + foto dengan filter. Saat crop, foto mentah yang ditampilkan.
+function drawFramed() {
+  const out = renderFramed(entries[idx]);
+  if (!out) { drawRaw(); return; }
+  cv.width = out.width; cv.height = out.height; cv.getContext('2d').drawImage(out, 0, 0);
+}
+function draw() { cropping ? drawRaw() : drawFramed(); }
+function preview() {   // setelah filter / bingkai / orientasi berubah: gambar ulang, dan sesuaikan zoom kalau ukuran gambar berubah
+  if (cropping) return;
+  const w = cv.width, h = cv.height; drawFramed(); if (cv.width !== w || cv.height !== h) fit();
 }
 function apply() {
   wrap.style.transform = `translate(${v.tx}px,${v.ty}px) scale(${v.s})`;
-  cv.style.outlineWidth = (cropping ? 0 : 14 / v.s) + 'px'; cropEl.style.borderWidth = (2 / v.s) + 'px';
+  cropEl.style.borderWidth = (2 / v.s) + 'px';
 }
 function fit() {
   const sw = stage.clientWidth, sh = stage.clientHeight; fitS = Math.min(sw / cv.width, sh / cv.height) * .88;
@@ -117,9 +126,34 @@ function setTab(n) {
 function pick(key, val) { update(idx, { [key]: val }); preview(); panel(); }
 function cycle(kind) {
   if (cropping) exitCrop(); tab = kind;
-  const list = kind === 'filter' ? FILTERS : FRAME_STYLES, d = data()[kind], i = list.findIndex(x => x.id === d);
+  const list = kind === 'filter' ? FILTERS : FRAME_STYLES, d = kind === 'filter' ? parseFilter(data().filter).id : data()[kind], i = list.findIndex(x => x.id === d);
   pick(kind, list[(i + 1) % list.length].id);
 }
+// ---------- penyesuaian manual filter ----------
+let adjOpen = false, adjRaf = 0, adjSpec = '';
+function setSpec(id, adj) {      // gabungkan banyak gerakan slider jadi satu gambar ulang per frame
+  adjSpec = stringifyFilter(id, adj);
+  if (!adjRaf) adjRaf = requestAnimationFrame(() => { adjRaf = 0; update(idx, { filter: adjSpec }); preview(); });
+}
+function renderAdj() {
+  const box = $('adj'), grid = $('adjgrid'), show = tab === 'filter' && adjOpen && !cropping;
+  box.classList.toggle('open', show); if (!show) return;
+  grid.textContent = ''; const { id, adj } = parseFilter(data().filter);
+  ADJ.forEach(([k, name, min, max]) => {
+    const lab = document.createElement('label'), top = document.createElement('span'), val = document.createElement('b'), inp = document.createElement('input');
+    val.textContent = adj[k] || 0; top.append(name + ' ', val);
+    inp.type = 'range'; inp.min = min; inp.max = max; inp.step = 1; inp.value = adj[k] || 0; inp.setAttribute('aria-label', name);
+    inp.oninput = () => { adj[k] = +inp.value; val.textContent = inp.value; setSpec(id, adj); };
+    inp.ondblclick = () => { inp.value = 0; inp.oninput(); };
+    lab.append(top, inp); grid.append(lab);
+  });
+}
+$('adjreset').onclick = () => { update(idx, { filter: parseFilter(data().filter).id }); preview(); renderAdj(); };
+async function orient(vert) {
+  if (!!entries[idx].vert === vert) return;
+  if (await setFrameOrient(idx, vert)) { draw(); fit(); panel(); }
+}
+
 function panel() {
   const p = $('panel'); p.innerHTML = ''; const d = data();
   document.querySelectorAll('#tools [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
@@ -128,7 +162,15 @@ function panel() {
     if (color) { const s = document.createElement('span'); s.className = 'sw'; s.style.background = color.startsWith('url(') ? color + ' center/cover' : color; b.append(s); }
     b.append(label); b.onclick = fn; p.append(b); return b;
   };
-  if (tab === 'filter') FILTERS.forEach(f => chip(f.name, d.filter === f.id, () => pick('filter', f.id)));
+  if (tab === 'filter') {
+    chip('Atur manual', adjOpen, () => { adjOpen = !adjOpen; panel(); }).classList.add('primary');
+    const cur = parseFilter(d.filter).id; FILTERS.forEach(f => chip(f.name, cur === f.id, () => pick('filter', f.id)));
+  }
+  if (tab === 'frame' && state.access.canManage) {     // orientasi disimpan di denah, jadi hanya yang boleh mengatur denah
+    const vert = !!entries[idx].vert;
+    chip('Mendatar', !vert, () => orient(false)); chip('Tegak', vert, () => orient(true));
+    const sep = document.createElement('span'); sep.className = 's'; sep.textContent = '|'; p.append(sep);
+  }
   if (tab === 'frame') FRAME_STYLES.forEach(f => chip(f.name, d.frame === f.id, () => pick('frame', f.id), frameSwatch(f.id) || hex(f.color)));
   if (tab === 'crop') {
     ASPECTS.forEach(a => chip(a.name, aspect === a.r, () => { aspect = a.r; panel(); }));
@@ -138,6 +180,7 @@ function panel() {
     const h = document.createElement('span'); h.className = 's'; h.textContent = 'Geser di atas foto untuk memilih area.'; p.append(h);
   }
   p.style.display = tab ? 'flex' : 'none';
+  renderAdj();
 }
 document.querySelectorAll('#tools [data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
 $('t-pick').onclick = () => $('pick').click();

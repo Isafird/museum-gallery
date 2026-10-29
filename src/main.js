@@ -3,7 +3,7 @@ import './style.css';
 import { renderer, scene, camera } from './scene.js';
 import { state } from './state.js';
 import { ROOM, SPEED } from './config.js';
-import { pics, walkable, museum, entries, setFrameStyle } from './gallery.js';
+import { pics, walkable, museum, entries, setFrameStyle, updateLamps, lowerLamps } from './gallery.js';
 import { makeAvatar, animateAvatar, sayOver, tickBubble } from './avatar.js';
 import { connect, disconnect, updateOthers, sendChat } from './network.js';
 import { initChat, clearChat, closeChat } from './chat.js';
@@ -13,7 +13,7 @@ import { closeEditor } from './editor.js';
 import { openModal, toggleModal } from './modal.js';
 import { toast } from './toast.js';
 import { findSpawn } from './layout.js';
-import { flushSaves } from './photos.js';
+import { flushSaves, render } from './photos.js';
 import { lockCursor } from './cursor.js';
 import { initOnline, startOnline, stopOnline } from './online.js';
 import { applyLayout, loadLocal } from './world.js';
@@ -49,7 +49,7 @@ async function backToMenu() {
   showStart(); toast('Kembali ke menu awal');
 }
 
-if (location.search.includes('debug')) window.__s = { state, walkable, entries, setFrameStyle };   // hook untuk pengujian otomatis (tambahkan ?debug ke alamat)
+if (location.search.includes('debug')) window.__s = { state, walkable, entries, setFrameStyle, render, renderer, scene, camera, applyLayout };   // hook untuk pengujian otomatis (tambahkan ?debug ke alamat)
 if (new URLSearchParams(location.search).has('cek')) import('./diagnose.js').then(m => m.run());   // halaman diagnosis Supabase
 const ray = new THREE.Raycaster(), clock = new THREE.Clock();
 
@@ -87,6 +87,26 @@ function placeCamera(t) {
   camera.lookAt(P.x, 1.55 + P.y, P.z);
 }
 
+// Kualitas otomatis: kalau rata-rata FPS di dalam museum rendah, resolusi gambar diturunkan bertahap (tidak pernah dinaikkan lagi
+// supaya tidak bolak-balik). Layar retina/HP resolusi tinggi biasanya yang paling berat.
+const RATIOS = [2, 1.5, 1.25, 1, .85, .7];
+let qi = Math.max(0, RATIOS.findIndex(r => r <= Math.min(devicePixelRatio, 2))), qLast = 0, qN = 0, qSum = 0, qWarm = 0, qTurn = 0, qToast = false;
+function autoQuality(now) {
+  const gap = now - qLast; qLast = now;
+  if (!state.active || state.viewing || document.hidden || gap > 250) { qN = 0; qSum = 0; qWarm = 20; return; }
+  if (qWarm > 0) { qWarm--; return; }                                       // abaikan beberapa frame setelah masuk / berhenti
+  qSum += gap; qN++;
+  if (qN < 90) return;
+  const avg = qSum / qN; qN = 0; qSum = 0;
+  if (avg > 1000 / 38) {                                                    // di bawah ~38 FPS
+    let done = false;                                                       // bergantian: kurangi cahaya, lalu resolusi
+    if (qTurn++ % 2 === 1) done = lowerLamps();
+    if (!done && qi < RATIOS.length - 1) { qi++; renderer.setPixelRatio(RATIOS[qi]); renderer.setSize(innerWidth, innerHeight); done = true; }
+    else if (!done) done = lowerLamps();
+    if (done) { qWarm = 30; if (!qToast) { qToast = true; toast('Kualitas gambar diturunkan otomatis supaya lebih lancar'); } }
+  }
+}
+
 function loop() {
   requestAnimationFrame(loop);
   const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
@@ -94,7 +114,7 @@ function loop() {
   const amt = state.active && !state.viewing ? move(dt) : 0;
   if (state.active) jumpStep(dt);
   me.position.set(P.x, P.y, P.z); animateAvatar(me, P.y > 0 ? .25 : amt, t); tickBubble(me);
-  placeCamera(t); updateOthers(dt, t);
+  placeCamera(t); updateOthers(dt, t); updateLamps(dt, P.x, P.z); autoQuality(performance.now());
 
   state.target = -1;
   if (state.active && !state.viewing) {

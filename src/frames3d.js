@@ -1,9 +1,11 @@
 import * as THREE from 'three';
+import { mergeBufferGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { getTex } from './frametex.js';
 
 // Bentuk 3D tiap gaya bingkai. Bukaan lukisan berukuran 2,4 x 1,7 (setengahnya 1,2 x 0,85) dan berpusat di (0,0).
 // z = jarak dari dinding: permukaan dinding di z = -0,05 dan lukisan di z = 0,06.
 const cache = new Map();
+let HX = 1.2, HY = .85;   // setengah lebar / tinggi bukaan lukisan (mendatar 1,2 x 0,85, tegak 0,85 x 1,2)
 // tex = nama tekstur motif (lihat frametex.js). Dengan tekstur, color jadi pengali warna (putih = warna asli tekstur).
 function mat(color, metal = 0, rough = .5, emissive = 0, ei = 0, tex = '') {
   const k = [color, metal, rough, emissive, ei, tex].join();
@@ -35,7 +37,7 @@ const cone = (g, r, h, seg, x, y, z, m) => { const o = new THREE.Mesh(new THREE.
 
 // Empat rail di sekeliling bukaan. inset = jarak dari tepi bukaan, bt = lebar rail, front = tinggi muka rail dari dinding
 function ring(g, bt, front, m, inset = 0) {
-  const ix = 1.2 + inset, iy = .85 + inset, d = front + .05, z = (front - .05) / 2;
+  const ix = HX + inset, iy = HY + inset, d = front + .05, z = (front - .05) / 2;
   box(g, 2 * (ix + bt), bt, d, 0, iy + bt / 2, z, m); box(g, 2 * (ix + bt), bt, d, 0, -iy - bt / 2, z, m);
   box(g, bt, 2 * iy, d, -ix - bt / 2, 0, z, m); box(g, bt, 2 * iy, d, ix + bt / 2, 0, z, m);
 }
@@ -52,7 +54,7 @@ const STYLES = {
   ornamen(g) {
     const light = mat(0xffffff, 0, .45, 0, 0, 'wood-oak'), dark = mat(0xffffff, 0, .55, 0, 0, 'wood-dark'), mid = mat(0xffffff, 0, .5, 0, 0, 'wood-mid');
     ring(g, .06, .09, light, 0); ring(g, .08, .065, dark, .06); ring(g, .06, .05, mid, .14);
-    const X = 1.4, Y = 1.05;
+    const X = HX + .2, Y = HY + .2;
     corners(([sx, sy]) => ball(g, .11, sx * (X - .02), sy * (Y - .02), .09, light));
     [[0, -Y], [0, Y], [-X, 0], [X, 0]].forEach(([x, y]) => { const o = box(g, .15, .15, .05, x, y, .08, light); o.rotation.z = Math.PI / 4; });
   },
@@ -61,7 +63,7 @@ const STYLES = {
   kerajaan(g) {
     const gold = mat(0xffffff, .3, .3, 0, 0, 'gold-light'), dgold = mat(0xffffff, .3, .35, 0, 0, 'gold-beads'), orn = mat(0xffffff, .25, .3, 0, 0, 'gold-ornate'), red = mat(0xb3122e, .2, .2, 0x5a0010, .6), blue = mat(0x2557d6, .2, .2, 0x0a1f66, .6);
     ring(g, .07, .12, dgold, 0); ring(g, .18, .075, orn, .07);
-    const X = 1.45, Y = 1.1;
+    const X = HX + .25, Y = HY + .25;
     corners(([sx, sy]) => { ball(g, .15, sx * X, sy * Y, .09, gold); ball(g, .06, sx * X, sy * Y, .23, red); });
     [[-X, 0], [X, 0], [0, -Y]].forEach(([x, y]) => ball(g, .07, x, y, .15, blue));
     box(g, .62, .1, .1, 0, Y + .02, .06, gold);                                   // alas mahkota
@@ -73,17 +75,17 @@ const STYLES = {
   lucu(g) {
     const pink = mat(0xff8fb8, 0, .6), yel = mat(0xffffff, 0, .6, 0, 0, 'yellow-stripe'), dots = mat(0xffffff, 0, .6, 0, 0, 'pink-dots'), yelP = mat(0xffe066, 0, .6);
     ring(g, .06, .09, yel, 0); ring(g, .2, .06, dots, .06);
-    const Y = 1.11;
-    [-1, 1].forEach(s => { const e = cone(g, .22, .36, 4, s * .85, Y + .15, .03, pink); e.rotation.y = Math.PI / 4; const i = cone(g, .12, .22, 4, s * .85, Y + .12, .07, yelP); i.rotation.y = Math.PI / 4; });
+    const Y = HY + .26, EX = HX - .35;
+    [-1, 1].forEach(s => { const e = cone(g, .22, .36, 4, s * EX, Y + .15, .03, pink); e.rotation.y = Math.PI / 4; const i = cone(g, .12, .22, 4, s * EX, Y + .12, .07, yelP); i.rotation.y = Math.PI / 4; });
   },
 
   // Balok warna-warni seperti mainan
   fun(g) {
     const cols = ['fun-red', 'fun-yel', 'fun-grn', 'fun-blu', 'fun-pur'], bt = .17, d = .12, z = .035;
-    const W = 2 * (1.2 + bt), H2 = 1.7; let k = 0;
-    for (let i = 0; i < 8; i++) { const w = W / 8, x = -W / 2 + w * (i + .5); box(g, w - .015, bt, d, x, .85 + bt / 2, z, mat(0xffffff, 0, .5, 0, 0, cols[k++ % 5])); box(g, w - .015, bt, d, x, -.85 - bt / 2, z, mat(0xffffff, 0, .5, 0, 0, cols[k++ % 5])); }
-    for (let j = 0; j < 5; j++) { const h = H2 / 5, y = -H2 / 2 + h * (j + .5); box(g, bt, h - .015, d, -(1.2 + bt / 2), y, z, mat(0xffffff, 0, .5, 0, 0, cols[k++ % 5])); box(g, bt, h - .015, d, 1.2 + bt / 2, y, z, mat(0xffffff, 0, .5, 0, 0, cols[k++ % 5])); }
-    corners(([sx, sy]) => ball(g, .09, sx * (1.2 + bt + .02), sy * (.85 + bt + .02), .1, mat(0xffffff, 0, .4)));
+    const W = 2 * (HX + bt), H2 = 2 * HY, nT = Math.round(W / .34), nS = Math.round(H2 / .34); let k = 0;
+    for (let i = 0; i < nT; i++) { const w = W / nT, x = -W / 2 + w * (i + .5); box(g, w - .015, bt, d, x, HY + bt / 2, z, mat(0xffffff, 0, .5, 0, 0, cols[k++ % 5])); box(g, w - .015, bt, d, x, -HY - bt / 2, z, mat(0xffffff, 0, .5, 0, 0, cols[k++ % 5])); }
+    for (let j = 0; j < nS; j++) { const h = H2 / nS, y = -H2 / 2 + h * (j + .5); box(g, bt, h - .015, d, -(HX + bt / 2), y, z, mat(0xffffff, 0, .5, 0, 0, cols[k++ % 5])); box(g, bt, h - .015, d, HX + bt / 2, y, z, mat(0xffffff, 0, .5, 0, 0, cols[k++ % 5])); }
+    corners(([sx, sy]) => ball(g, .09, sx * (HX + bt + .02), sy * (HY + bt + .02), .1, mat(0xffffff, 0, .4)));
   },
 
   // Passe-partout putih tipis dengan garis hitam halus
@@ -99,4 +101,14 @@ const STYLES = {
     ring(g, .016, .072, mat(0xff2bd6, 0, .4, 0xff2bd6, 2.4), .034);
   },
 };
-export function buildFrame(group, id) { (STYLES[id] || STYLES.kayu)(group); }
+// Gabungkan potongan bingkai yang bahannya sama jadi satu mesh (puluhan potongan -> beberapa saja): jauh lebih sedikit draw call
+function mergeByMaterial(group) {
+  const by = new Map();
+  group.children.slice().forEach(o => {
+    if (!o.isMesh) return; o.updateMatrix();
+    const g = o.geometry.index ? o.geometry : o.geometry.toNonIndexed(); g.applyMatrix4(o.matrix);
+    if (!by.has(o.material)) by.set(o.material, []); by.get(o.material).push(g); group.remove(o);
+  });
+  by.forEach((list, m) => { const g = list.length > 1 ? mergeBufferGeometries(list) : list[0]; if (g) group.add(new THREE.Mesh(g, m)); });
+}
+export function buildFrame(group, id, vertical = false) { HX = vertical ? .85 : 1.2; HY = vertical ? 1.2 : .85; (STYLES[id] || STYLES.kayu)(group); mergeByMaterial(group); }

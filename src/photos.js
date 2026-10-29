@@ -1,6 +1,7 @@
 import { entries, ensureEntry, defTitle, setFrameStyle, drawPlaque } from './gallery.js';
 import { state } from './state.js';
-import { FILTERS, MAX_IMG, DEFAULT_PHOTO } from './config.js';
+import { MAX_IMG, DEFAULT_PHOTO } from './config.js';
+import { applyFilter } from './filters.js';
 import * as db from './db.js';
 import { toast } from './toast.js';
 
@@ -16,15 +17,15 @@ export function applyFrame(i) { setFrameStyle(i); }
 
 // Gambar ulang isi bingkai di 3D (crop + filter, di atas matte putih)
 export function render(i) {
-  const e = entries[i], d = e.data, c = e.canvas, g = c.getContext('2d'), src = getSource(i);
+  const e = entries[i], d = e.data, c = e.canvas, g = c.getContext('2d', { willReadFrequently: true }), src = getSource(i);
   const cr = d.crop || { x: 0, y: 0, w: 1, h: 1 };
   const sx = cr.x * src.width, sy = cr.y * src.height, sw = cr.w * src.width, sh = cr.h * src.height;
-  const m = 26, k = Math.min((c.width - 2 * m) / sw, (c.height - 2 * m) / sh), w = sw * k, h = sh * k;
-  g.filter = 'none'; g.fillStyle = '#e9e7e2'; g.fillRect(0, 0, c.width, c.height);
-  const f = FILTERS.find(x => x.id === d.filter);
-  if ('filter' in g && f) g.filter = f.css;       // (browser tanpa ctx.filter menampilkan foto tanpa filter)
-  g.drawImage(src, sx, sy, sw, sh, (c.width - w) / 2, (c.height - h) / 2, w, h);
-  g.filter = 'none'; e.tex.needsUpdate = true; e.rendered = true; drawPlaque(i);
+  const m = 26, k = Math.min((c.width - 2 * m) / sw, (c.height - 2 * m) / sh), w = Math.max(1, Math.round(sw * k)), h = Math.max(1, Math.round(sh * k));
+  const dx = Math.round((c.width - w) / 2), dy = Math.round((c.height - h) / 2);
+  g.fillStyle = '#e9e7e2'; g.fillRect(0, 0, c.width, c.height);
+  g.drawImage(src, sx, sy, sw, sh, dx, dy, w, h);
+  try { applyFilter(g, dx, dy, w, h, d.filter); } catch (err) {}           // filter dihitung per piksel hanya pada area foto (matte tidak ikut)
+  e.tex.needsUpdate = true; e.rendered = true; drawPlaque(i);
 }
 
 const timers = {}, inflight = new Set();
