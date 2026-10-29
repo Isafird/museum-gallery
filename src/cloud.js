@@ -85,9 +85,9 @@ export async function save(rec) {
   if (!canEdit()) return false;
   try {
     if (rec.photoChanged && rec.blob) {
-      const up = await sb.storage.from(BUCKET).upload(`${S.id}/${rec.id}-${rec.ph}.jpg`, rec.blob, { contentType: 'image/jpeg', upsert: false });
+      const up = await sb.storage.from(BUCKET).upload(`${S.id}/${rec.id}-${rec.ph}.${rec.ext}`, rec.blob, { contentType: rec.ext === 'jpg' ? 'image/jpeg' : (rec.blob.type || 'video/mp4'), upsert: false });
       if (up.error) throw up.error;
-      if (rec.oldPh) sb.storage.from(BUCKET).remove([`${S.id}/${rec.id}-${rec.oldPh}.jpg`]);     // hapus versi lama
+      if (rec.oldPh) sb.storage.from(BUCKET).remove([`${S.id}/${rec.id}-${rec.oldPh}.${rec.oldExt || 'jpg'}`]);     // hapus versi lama
     }
     const ts = new Date().toISOString(); mine.set(rec.id, Date.parse(ts));
     const { error } = await sb.from('frames').upsert({
@@ -106,8 +106,8 @@ export async function remove(id) {
     if (names.length) await sb.storage.from(BUCKET).remove(names);
   } catch (e) {}
 }
-export async function loadPhoto(id, ph) {
-  const { data, error } = await sb.storage.from(BUCKET).download(`${S.id}/${id}-${ph}.jpg`);
+export async function loadPhoto(id, ph, ext = 'jpg') {
+  const { data, error } = await sb.storage.from(BUCKET).download(`${S.id}/${id}-${ph}.${ext}`);
   if (error) throw error; return data;
 }
 export async function saveLayout(layout) {

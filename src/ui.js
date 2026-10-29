@@ -1,6 +1,6 @@
 import { state, saveChar } from './state.js';
 import { entries } from './gallery.js';
-import { HATS } from './avatar.js';
+import { HATS, TOPS, BOTTOMS, BODIES, FACES } from './avatar.js';
 import { openEditor } from './editor.js';
 import { toggleCursor } from './cursor.js';
 import { toast } from './toast.js';
@@ -63,16 +63,26 @@ export function showStart() {      // dipanggil saat kembali ke menu awal
 
 export function initUI({ onLook, onStart, onMenu }) {
   menuCb = onMenu;
-  HATS.forEach(h => $('hat').add(new Option(h.name, h.id)));
+  [['hat', HATS], ['top', TOPS], ['bottom', BOTTOMS], ['body', BODIES], ['face', FACES]].forEach(([id, list]) => list.forEach(h => $(id).add(new Option(h.name, h.id))));
   try { $('room').value = localStorage.getItem('museum-room') || ''; mode = localStorage.getItem('museum-mode') || 'online'; } catch (e) {}
   $('nm').value = state.name; $('c1').value = state.look.skin; $('c2').value = state.look.shirt;
-  $('c3').value = state.look.pants; $('hat').value = state.look.hat;
+  $('c3').value = state.look.pants; $('c4').value = state.look.hatc;
+  ['hat', 'top', 'bottom', 'body', 'face'].forEach(id => { $(id).value = state.look[id]; });
   const read = () => {
-    state.look = { skin: $('c1').value, shirt: $('c2').value, pants: $('c3').value, hat: +$('hat').value };
+    state.look = { skin: $('c1').value, shirt: $('c2').value, pants: $('c3').value, hatc: $('c4').value, hat: +$('hat').value, top: +$('top').value, bottom: +$('bottom').value, body: +$('body').value, face: +$('face').value };
     state.name = ($('nm').value.trim() || 'Pengunjung').slice(0, 14);
     onLook();
   };
-  ['c1', 'c2', 'c3', 'hat'].forEach(id => $(id).addEventListener('input', read));
+  ['c1', 'c2', 'c3', 'c4', 'hat', 'top', 'bottom', 'body', 'face'].forEach(id => $(id).addEventListener('input', read));
+  $('charbtn').onclick = () => document.body.classList.add('charopen');
+  $('charclose').onclick = () => document.body.classList.remove('charopen');
+  $('randlook').onclick = () => {                                          // acak penampilan
+    const pick = n => Math.floor(Math.random() * n), col = () => '#' + [0, 0, 0].map(() => (40 + pick(190)).toString(16).padStart(2, '0')).join('');
+    const skins = ['#f1c9a5', '#e0ac84', '#c68642', '#8d5524', '#f5d7c3', '#6b4423'];
+    $('c1').value = skins[pick(skins.length)]; $('c2').value = col(); $('c3').value = col(); $('c4').value = col();
+    $('hat').value = pick(HATS.length); $('top').value = pick(TOPS.length); $('bottom').value = pick(BOTTOMS.length); $('body').value = pick(BODIES.length); $('face').value = pick(FACES.length);
+    read();
+  };
 
   $('mode').style.display = cloud.cloudEnabled ? '' : 'none';
   $('m-local').onclick = () => setMode('local'); $('m-online').onclick = () => setMode('online');

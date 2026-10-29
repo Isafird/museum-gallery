@@ -2,14 +2,15 @@
 export const ROOM = { H: 4.5 };                   // tinggi ruangan (meter). Bentuk dan luas ada di denah (layout.js)
 export const SPEED = 3.6;                          // kecepatan jalan
 export const PEER_PREFIX = 'museumfoto-';          // awalan ID room multiplayer
-export const DEFAULT_LOOK = { skin: '#e0ac84', shirt: '#3b6ea5', pants: '#2c2f3a', hat: 0 };
+export const DEFAULT_LOOK = { skin: '#e0ac84', shirt: '#3b6ea5', pants: '#2c2f3a', hat: 0, hatc: '#c0392b', top: 0, bottom: 0, body: 0, face: 0 };
 
 // Judul bawaan bingkai ke-1, ke-2, dst.
 export const TITLES = ['Fajar di Atas Kabut','Sawah Bertingkat','Pelabuhan Senja','Hutan Pagi','Lorong Kota Tua','Danau Sunyi','Gunung dan Awan','Pasar Terapung','Kebun Teh','Pantai Karang','Jembatan Lama','Langit Malam'];
 
 // ---- Editor foto ----
 export const MAX_IMG = 2400;   // sisi terpanjang foto yang disimpan di browser (px)
-export const DEFAULT_PHOTO = { blob: null, crop: null, filter: 'none', frame: 'kayu' };
+export const DEFAULT_PHOTO = { blob: null, crop: null, filter: 'none', frame: 'kayu', video: null, rot: 0 };
+export const MAX_VIDEO_S = 10, MAX_VIDEO_BYTES = 12 * 1024 * 1024;   // video di bingkai: maksimal 10 detik dan 12 MB
 // Setiap filter = parameter (lihat filters.js): b kecerahan, c kontras, s saturasi, w suhu, t warna (hijau-magenta), f pudar, v vinyet, g butiran, n ketajaman, sep sepia
 export const FILTERS = [
   { id: 'none',    name: 'Asli',          p: {} },

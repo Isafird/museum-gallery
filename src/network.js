@@ -2,7 +2,7 @@ import { Peer } from 'peerjs';
 import { scene } from './scene.js';
 import { state } from './state.js';
 import { PEER_PREFIX } from './config.js';
-import { makeAvatar, nameTag, animateAvatar, sayOver, tickBubble } from './avatar.js';
+import { makeAvatar, disposeAvatar, nameTag, animateAvatar, sayOver, tickBubble } from './avatar.js';
 import { logChat, CHAT_LEN } from './chat.js';
 
 // Multiplayer: pemain pertama di sebuah room jadi host, yang lain konek ke host.
@@ -15,12 +15,12 @@ function upsert(d) {
   if (!o) { o = { g: null, key: '', x: d.x, z: d.z, y: +d.y || 0, yaw: d.yaw, seen: 0 }; others.set(d.id, o); }
   const key = JSON.stringify(d.look) + d.name;
   if (o.key !== key) {                       // tampilan/nama berubah: bangun ulang karakter
-    if (o.g) scene.remove(o.g);
-    o.g = makeAvatar(d.look); o.g.add(nameTag(d.name)); o.g.position.set(o.x, o.y, o.z); scene.add(o.g); o.key = key;
+    if (o.g) { scene.remove(o.g); disposeAvatar(o.g); }
+    o.g = makeAvatar(d.look); o.g.add(nameTag(d.name, o.g.userData.top)); o.g.position.set(o.x, o.y, o.z); scene.add(o.g); o.key = key;
   }
   o.x = d.x; o.z = d.z; o.y = +d.y || 0; o.yaw = d.yaw; o.seen = performance.now();
 }
-function remove(id) { const o = others.get(id); if (o) { if (o.g) scene.remove(o.g); others.delete(id); } }
+function remove(id) { const o = others.get(id); if (o) { if (o.g) { scene.remove(o.g); disposeAvatar(o.g); } others.delete(id); } }
 
 function onData(d, from) {
   if (d.t === 's') { upsert(d); if (isHost) conns.forEach(c => { if (c !== from && c.open) c.send(d); }); }

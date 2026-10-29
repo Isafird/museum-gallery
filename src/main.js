@@ -4,7 +4,7 @@ import { renderer, scene, camera } from './scene.js';
 import { state } from './state.js';
 import { ROOM, SPEED } from './config.js';
 import { pics, walkable, museum, entries, setFrameStyle, updateLamps, lowerLamps } from './gallery.js';
-import { makeAvatar, animateAvatar, sayOver, tickBubble } from './avatar.js';
+import { makeAvatar, disposeAvatar, animateAvatar, sayOver, tickBubble } from './avatar.js';
 import { connect, disconnect, updateOthers, sendChat } from './network.js';
 import { initChat, clearChat, closeChat } from './chat.js';
 import { keys, mv } from './controls.js';
@@ -15,6 +15,7 @@ import { toast } from './toast.js';
 import { findSpawn } from './layout.js';
 import { flushSaves, render } from './photos.js';
 import { lockCursor } from './cursor.js';
+import { updateVideos, pauseVideos } from './videos.js';
 import { initOnline, startOnline, stopOnline } from './online.js';
 import { applyLayout, loadLocal } from './world.js';
 import { defaultLayout } from './layout.js';
@@ -24,7 +25,7 @@ const JUMP_V = 5.6, GRAV = 16;   // loncat setinggi ±1 m
 const { P } = state;
 let me = null;   // karakter milik sendiri
 
-function rebuildMe() { if (me) scene.remove(me); me = makeAvatar(state.look); scene.add(me); }
+function rebuildMe() { if (me) { scene.remove(me); disposeAvatar(me); } me = makeAvatar(state.look); scene.add(me); }
 applyLayout(defaultLayout());          // denah bawaan dulu, denah tersimpan dimuat sesudahnya
 rebuildMe();
 initUI({
@@ -49,7 +50,7 @@ async function backToMenu() {
   showStart(); toast('Kembali ke menu awal');
 }
 
-if (location.search.includes('debug')) window.__s = { state, walkable, entries, setFrameStyle, render, renderer, scene, camera, applyLayout };   // hook untuk pengujian otomatis (tambahkan ?debug ke alamat)
+if (location.search.includes('debug')) window.__s = { makeAvatar, state, walkable, entries, setFrameStyle, render, renderer, scene, camera, applyLayout };   // hook untuk pengujian otomatis (tambahkan ?debug ke alamat)
 if (new URLSearchParams(location.search).has('cek')) import('./diagnose.js').then(m => m.run());   // halaman diagnosis Supabase
 const ray = new THREE.Raycaster(), clock = new THREE.Clock();
 
@@ -76,7 +77,7 @@ function placeCamera(t) {
   if (!state.active) {                 // layar awal: kamera memandang karakter
     me.visible = true; me.rotation.y = t * .7;
     camera.position.set(P.x, 1.35, P.z - 3); camera.lookAt(P.x, 1.05, P.z);
-    if (innerWidth > 700) camera.setViewOffset(innerWidth, innerHeight, -innerWidth * .2, 0, innerWidth, innerHeight);
+    if (innerWidth > 700) camera.setViewOffset(innerWidth, innerHeight, -innerWidth * .2, innerHeight * .14, innerWidth, innerHeight);   // karakter agak ke atas supaya panel edit di bawahnya tidak menutupi
     return;
   }
   me.rotation.y = yaw; me.visible = state.third;
@@ -110,11 +111,11 @@ function autoQuality(now) {
 function loop() {
   requestAnimationFrame(loop);
   const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
-  if (state.active && state.viewing) return;      // editor denah / foto / bantuan menutupi layar: tidak perlu menggambar museum
+  if (state.active && state.viewing) { pauseVideos(); return; }      // editor denah / foto / bantuan menutupi layar: tidak perlu menggambar museum
   const amt = state.active && !state.viewing ? move(dt) : 0;
   if (state.active) jumpStep(dt);
   me.position.set(P.x, P.y, P.z); animateAvatar(me, P.y > 0 ? .25 : amt, t); tickBubble(me);
-  placeCamera(t); updateOthers(dt, t); updateLamps(dt, P.x, P.z); autoQuality(performance.now());
+  placeCamera(t); updateOthers(dt, t); updateLamps(dt, P.x, P.z); updateVideos(camera); autoQuality(performance.now());
 
   state.target = -1;
   if (state.active && !state.viewing) {

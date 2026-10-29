@@ -120,6 +120,10 @@ Pesan `No API key found in request` setelah login biasanya berarti Site URL atau
 - Orang pertama yang masuk (dengan Google) ke kode room yang belum ada menjadi pemilik. Pilih kode yang unik.
 - Room **publik**: siapa saja yang tahu kodenya bisa melihat tanpa login. Room **privat**: hanya anggota.
 - Pemilik menambah anggota lewat email Google mereka. Peran dicek oleh aturan RLS di database, bukan hanya oleh tombol di layar.
+- Karakter: 9 topi (termasuk topi pantai, kupluk, koboi, mahkota), 8 model baju, 5 model celana/rok, 6 bentuk tubuh, 10 wajah, warna topi, dan tombol Acak. Daftarnya ada di bagian atas `src/avatar.js`; tambah item baru di akhir daftar lalu buat bentuknya di fungsi `makeAvatar` / `addHat`. Pilihan lama yang tersimpan tetap terbaca.
+- Format foto: JPEG, PNG, WebP, GIF, BMP, AVIF, dan HEIC/HEIF dari iPhone (HEIC diubah otomatis di browser memakai pustaka `heic-to`, dimuat hanya saat dibutuhkan). Orientasi EXIF ikut diterapkan.
+- Editor foto: tombol Putar (R) untuk memutar 90° dan meluruskan foto miring (±45°); Crop (C) punya pegangan di sudut/sisi dan kotaknya bisa digeser. Putaran disimpan di dalam kolom `crop` (field `r`), tanpa mengubah database.
+- Video di bingkai: maksimal 10 detik dan 12 MB (mp4 / webm / mov), tanpa suara, hanya 2 video terdekat yang diputar. Untuk galeri online lama, jalankan `supabase-video.sql` sekali di SQL Editor.
 - Foto disimpan di Supabase Storage (maksimal 2400 px), pengaturannya di tabel `frames`, denah di tabel `rooms`.
 - Jika dua orang mengedit bingkai yang sama bersamaan, yang terakhir menyimpan yang dipakai.
 - Project Supabase gratis di-pause otomatis setelah sekitar seminggu tidak dipakai. Buka dashboard dan klik Restore untuk mengaktifkannya lagi.

@@ -22,7 +22,7 @@ export const state = {
 
 try {
   const s = JSON.parse(localStorage.getItem('museum-char'));
-  if (s) { state.look = s.look; state.name = s.name; }
+  if (s) { state.look = { ...DEFAULT_LOOK, ...s.look }; state.name = s.name; }
 } catch (e) {}
 
 export function saveChar() {

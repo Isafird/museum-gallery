@@ -23,12 +23,7 @@
   <section>
     <h2>Karakter</h2>
     <label>Nama<input id="nm" maxlength="14" autocomplete="off"></label>
-    <div class="row">
-      <label>Kulit<input type="color" id="c1"></label>
-      <label>Baju<input type="color" id="c2"></label>
-      <label>Celana<input type="color" id="c3"></label>
-    </div>
-    <label>Topi<select id="hat"></select></label>
+    <button id="charbtn" class="chip" type="button">Edit penampilan karakter</button>
   </section>
 
   <section>
@@ -47,7 +42,23 @@
 
   <button id="go">Masuk galeri</button>
   <footer class="s">Di dalam galeri: H bantuan, Q kembali ke menu, Ctrl+S simpan. <a href="?cek">Cek koneksi Supabase</a></footer>
-</div></div>
+</div>
+<aside id="charpanel" aria-label="Edit karakter">
+  <div class="cphead"><b>Edit karakter</b><button id="charclose" class="chip" type="button">Selesai</button></div>
+  <div class="cpgrid">
+    <label>Kulit<input type="color" id="c1"></label>
+    <label>Warna baju<input type="color" id="c2"></label>
+    <label>Warna celana<input type="color" id="c3"></label>
+    <label>Warna topi<input type="color" id="c4"></label>
+    <label class="w2">Model topi<select id="hat"></select></label>
+    <label class="w2">Wajah<select id="face"></select></label>
+    <label class="w2">Model baju<select id="top"></select></label>
+    <label class="w2">Model celana<select id="bottom"></select></label>
+    <label class="w3">Bentuk tubuh<select id="body"></select></label>
+    <button id="randlook" class="chip" type="button">Acak</button>
+  </div>
+</aside>
+</div>
 
 <div id="tl"><div id="hud"></div><div id="badge"></div></div>
 <div id="bar">
@@ -88,13 +99,14 @@
   <div id="panel"></div>
   <div id="adj"><div id="adjgrid"></div><button id="adjreset" class="chip" type="button">Setel ulang penyesuaian</button></div>
   <div id="tools">
-    <button class="tool" id="t-pick">Ganti foto <kbd>U</kbd></button>
+    <button class="tool" id="t-pick">Ganti foto / video <kbd>U</kbd></button>
     <button class="tool" data-tab="filter">Filter <kbd>F</kbd></button>
     <button class="tool" data-tab="frame">Frame <kbd>B</kbd></button>
+    <button class="tool" data-tab="rotate">Putar <kbd>R</kbd></button>
     <button class="tool" data-tab="crop">Crop <kbd>C</kbd></button>
     <button class="tool" id="t-reset">Kembalikan bawaan</button>
   </div>
-  <input id="pick" type="file" accept="image/*" hidden>
+  <input id="pick" type="file" accept="image/*,video/*,.heic,.heif,.avif" hidden>
 </div>
 
 <div id="help" class="modal"><div class="hbox">
@@ -119,7 +131,8 @@
     <kbd>U</kbd><span>Ganti foto</span>
     <kbd>F</kbd><span>Filter berikutnya</span>
     <kbd>B</kbd><span>Frame berikutnya</span>
-    <kbd>C</kbd><span>Mode crop, lalu Enter untuk menerapkan</span>
+    <kbd>R</kbd><span>Putar / luruskan foto</span>
+    <kbd>C</kbd><span>Mode crop (geser kotak atau tarik pegangannya), lalu Enter untuk menerapkan</span>
     <kbd>+ &minus; 0</kbd><span>Zoom masuk, keluar, pas (roda mouse dan cubit juga bisa)</span>
     <kbd>Esc</kbd><span>Tutup editor</span>
   </div>

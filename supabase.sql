@@ -74,8 +74,8 @@ create policy frames_delete on public.frames for delete to authenticated using (
 
 -- ========== Penyimpanan foto ==========
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('photos', 'photos', false, 5242880, array['image/jpeg']) on conflict (id) do nothing;
--- nama file: {kode-room}/{id-bingkai}-{versi}.jpg
+values ('photos', 'photos', false, 12582912, array['image/jpeg', 'video/mp4', 'video/webm', 'video/quicktime']) on conflict (id) do nothing;   -- foto JPEG dan video pendek (maks 12 MB)
+-- nama file: {kode-room}/{id-bingkai}-{versi}.jpg (atau .mp4 / .webm / .mov untuk video)
 create policy photos_read on storage.objects for select using (bucket_id = 'photos' and public.can_view((storage.foldername(name))[1]));
 create policy photos_insert on storage.objects for insert to authenticated with check (bucket_id = 'photos' and public.can_edit((storage.foldername(name))[1]));
 create policy photos_delete on storage.objects for delete to authenticated using (bucket_id = 'photos' and public.can_edit((storage.foldername(name))[1]));
