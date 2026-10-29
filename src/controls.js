@@ -7,6 +7,7 @@ import { openPlan, planKey } from './plan.js';
 import { openModal, toggleModal } from './modal.js';
 import { editorKey } from './editor.js';
 import { isLocked, lockCursor, toggleCursor } from './cursor.js';
+import { openChat, closeChat, isChatOpen } from './chat.js';
 
 export const keys = {};            // tombol yang sedang ditekan
 export const mv = { x: 0, y: 0 };  // joystick sentuh (-1..1)
@@ -25,12 +26,17 @@ addEventListener('keydown', e => {
     if (e.code === 'Escape' || (e.code === 'Enter' && e.target.id === 'ttl')) e.target.blur();
     return;
   }
+  if (e.code === 'Escape' && isChatOpen()) { closeChat(); return; }
   if (e.code === 'Tab' && !state.viewing) e.preventDefault();
   const m = openModal();                                          // bantuan / anggota sedang terbuka
   if (m && m.id === 'plan') { planKey(e); return; }
   if (m) { if (e.code === 'Escape' || (e.code === 'KeyH' && m.id === 'help') || (e.code === 'KeyM' && m.id === 'members')) toggleModal(m); return; }
   if (state.viewing) { editorKey(e); return; }
+  if (e.code === 'KeyT' || (e.code === 'Enter' && state.target < 0)) {   // chat (Enter dipakai untuk membuka foto kalau sedang membidik)
+    e.preventDefault(); Object.keys(keys).forEach(k => { keys[k] = 0; }); mv.x = mv.y = 0; openChat(); return;
+  }
   keys[e.code] = 1;
+  if (e.code === 'Space') e.preventDefault();                  // loncat: jangan menggulung halaman / menekan tombol yang fokus
   if (e.code === 'KeyE' || e.code === 'Enter') interact();
   else if (e.code === 'KeyV') toggleCam();
   else if (e.code === 'Tab') toggleCursor();
@@ -39,7 +45,17 @@ addEventListener('keydown', e => {
   else if (e.code === 'KeyL') openPlan();
   else if (e.code === 'KeyQ') goMenu();
 });
-addEventListener('keyup', e => { keys[e.code] = 0; });
+addEventListener('keyup', e => {
+  keys[e.code] = 0;
+  if (e.code === 'Space' && state.active && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) e.preventDefault();
+});
+// Tombol loncat di layar sentuh (tahan = loncat terus)
+const jb = document.getElementById('jumpbtn');
+if (jb) {
+  const up = () => { keys.Space = 0; };
+  jb.addEventListener('pointerdown', e => { e.preventDefault(); if (state.active && !state.viewing) keys.Space = 1; });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(n => jb.addEventListener(n, up));
+}
 
 // ---- Mouse: kursor terkunci, atau geser sambil klik kalau kursor tampil ----
 let down = null;

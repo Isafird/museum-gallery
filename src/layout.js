@@ -142,10 +142,12 @@ export function autoLights(m) {
 }
 export const inFloor = (m, x, z) => m.polys.some(q => pip([x, z], q));
 export const walkable = (m, x, z, r = .45) => inFloor(m, x, z) && m.walls.every(w => segD(x, z, w.x1, w.z1, w.x2, w.z2) >= r);
-export function floorArea(m) {   // perkiraan luas lantai (m2), dihitung per 0,5 m
+const areaCache = new WeakMap();
+export function floorArea(m) {   // perkiraan luas lantai (m2), dihitung per 0,5 m (di-cache per hasil analisis)
+  if (areaCache.has(m)) return areaCache.get(m);
   let n = 0; const b = m.bounds;
   for (let x = b.minx + .25; x < b.maxx; x += .5) for (let z = b.minz + .25; z < b.maxz; z += .5) if (inFloor(m, x, z)) n++;
-  return Math.round(n * .25);
+  const r = Math.round(n * .25); areaCache.set(m, r); return r;
 }
 export function findSpawn(m) {
   const b = m.bounds, cx = (b.minx + b.maxx) / 2, cz = (b.minz + b.maxz) / 2; let best = null, bd = 1e9;
@@ -157,7 +159,9 @@ export function findSpawn(m) {
 // ---------- bingkai di dinding ----------
 // Cari titik dinding terdekat dari (px,pz), disnap ke kelipatan `step` meter. null kalau tidak ada.
 // Gabungkan potongan dinding yang segaris dan bersambung (dinding terpecah di titik singgung bentuk lain)
+const mergedCache = new WeakMap();
 function mergeWalls(ws) {
+  if (mergedCache.has(ws)) return mergedCache.get(ws);
   const groups = new Map();
   for (const w of ws) {
     const dx = w.x2 - w.x1, dz = w.z2 - w.z1, L = Math.hypot(dx, dz); if (L < 1e-9) continue;
@@ -174,7 +178,7 @@ function mergeWalls(ws) {
     for (const it of g.items) { if (cur && it.t0 <= cur.t1 + 1e-3) cur.t1 = Math.max(cur.t1, it.t1); else { flush(); cur = { ...it }; } }
     flush();
   }
-  return out;
+  mergedCache.set(ws, out); return out;
 }
 export function snapToWall(m, px, pz, step = .5, margin0 = FRAME_W / 2 + .1) {
   let best = null;

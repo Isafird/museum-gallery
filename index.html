@@ -41,18 +41,28 @@
   <footer class="s">Di dalam galeri: H bantuan, Q kembali ke menu, Ctrl+S simpan. <a href="?cek">Cek koneksi Supabase</a></footer>
 </div></div>
 
-<div id="hud"></div>
-<div id="badge"></div>
+<div id="tl"><div id="hud"></div><div id="badge"></div></div>
 <div id="bar">
-  <button id="menubtn">Menu [Q]</button>
-  <button id="cambtn">Kamera: orang pertama [V]</button>
-  <button id="curbtn">Kursor [Tab]</button>
-  <button id="helpbtn">Bantuan [H]</button>
-  <button id="plnbtn">Denah [L]</button>
-  <button id="accbtn" class="cloudonly">Masuk Google</button>
-  <button id="membtn" class="cloudonly" style="display:none">Anggota [M]</button>
+  <button id="barbtn" aria-label="Menu" aria-expanded="false" aria-controls="barlist">&#9776; Menu</button>
+  <div id="barlist">
+    <button id="menubtn">Menu [Q]</button>
+    <button id="cambtn">Kamera: orang pertama [V]</button>
+    <button id="chatbtn">Chat [T]</button>
+    <button id="curbtn">Kursor [Tab]</button>
+    <button id="helpbtn">Bantuan [H]</button>
+    <button id="plnbtn">Denah [L]</button>
+    <button id="accbtn" class="cloudonly">Masuk Google</button>
+    <button id="membtn" class="cloudonly" style="display:none">Anggota [M]</button>
+  </div>
 </div>
 <div id="dot"></div><div id="hint"></div><div id="toast" role="status"></div>
+
+<div id="chat">
+  <div id="chhead"><b>Riwayat chat</b><button id="chclose" class="chip" type="button">Tutup</button></div>
+  <div id="chlog"></div>
+  <form id="chform" autocomplete="off"><input id="chin" placeholder="Ketik pesan lalu Enter" enterkeyhint="send" aria-label="Pesan chat"><button id="chsend" type="submit" class="chip primary">Kirim</button></form>
+</div>
+<div id="touch"><button id="chatq" type="button" aria-label="Chat">Chat</button><button id="jumpbtn" type="button" aria-label="Loncat">Loncat</button></div>
 
 <div id="editor">
   <div id="edtop">
@@ -82,6 +92,8 @@
   <div class="grid">
     <kbd>W A S D</kbd><span>Jalan (tombol panah juga bisa)</span>
     <kbd>Shift</kbd><span>Lari</span>
+    <kbd>Spasi</kbd><span>Loncat (di HP: tombol Loncat)</span>
+    <kbd>T</kbd><span>Chat: ketik pesan lalu Enter. Muncul di atas kepalamu, ada riwayatnya. Esc untuk menutup (Enter juga bisa kalau tidak membidik foto)</span>
     <kbd>V</kbd><span>Ganti kamera orang pertama / ketiga</span>
     <kbd>Tab</kbd><span>Tampilkan atau sembunyikan kursor</span>
     <kbd>E</kbd><span>Buka foto yang dibidik (atau klik)</span>

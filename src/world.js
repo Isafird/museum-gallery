@@ -8,7 +8,7 @@ import { toast } from './toast.js';
 // Pasang denah baru ke dunia 3D
 export function applyLayout(l) {
   const layout = normalizeLayout(l); state.layout = layout; buildMuseum(layout);
-  layout.frames.forEach(f => { applyFrame(f.id); render(f.id); });
+  layout.frames.forEach(f => { applyFrame(f.id); if (!entries[f.id].rendered) render(f.id); });
   if (!walkable(state.P.x, state.P.z, .45)) { const s = findSpawn(museum); state.P.x = s[0]; state.P.z = s[1]; }   // pemain di dalam dinding? pindahkan
 }
 

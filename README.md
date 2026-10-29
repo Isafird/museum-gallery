@@ -22,6 +22,7 @@ npm run dev
 | `src/gallery.js` | Membangun museum 3D dari denah (dinding, pintu, lampu, bingkai, papan nama, lampu sorot) |
 | `src/avatar.js` | Bentuk karakter, daftar topi, animasi jalan |
 | `src/network.js` | Multiplayer (host + relay lewat PeerJS) |
+| `src/chat.js` | Kotak chat dan riwayat (gelembung di atas kepala ada di `avatar.js`, pengiriman di `network.js`) |
 | `src/controls.js` | Keyboard, mouse, sentuh |
 | `src/ui.js` | Formulir karakter, tombol atas, bantuan |
 | `src/editor.js` | Editor foto: ganti foto, filter, frame, crop, zoom |
@@ -46,6 +47,8 @@ npm run dev
 |---|---|
 | W A S D / panah | Jalan |
 | Shift | Lari |
+| Spasi | Loncat (di HP: tombol Loncat) |
+| T atau Enter | Chat: ketik lalu Enter. Esc menutup. Riwayat lewat tombol Chat |
 | V | Ganti kamera orang pertama / ketiga |
 | Tab | Tampilkan / sembunyikan kursor |
 | E atau klik | Buka foto yang dibidik |

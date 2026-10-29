@@ -24,7 +24,7 @@ export function render(i) {
   const f = FILTERS.find(x => x.id === d.filter);
   if ('filter' in g && f) g.filter = f.css;       // (browser tanpa ctx.filter menampilkan foto tanpa filter)
   g.drawImage(src, sx, sy, sw, sh, (c.width - w) / 2, (c.height - h) / 2, w, h);
-  g.filter = 'none'; e.tex.needsUpdate = true; drawPlaque(i);
+  g.filter = 'none'; e.tex.needsUpdate = true; e.rendered = true; drawPlaque(i);
 }
 
 const timers = {}, inflight = new Set();

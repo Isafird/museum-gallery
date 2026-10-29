@@ -206,7 +206,7 @@ cv.onpointermove = e => {
   if (pan) { view.cx = pan.cx - (e.clientX - pan.x) / view.s; view.cz = pan.cz - (e.clientY - pan.y) / view.s; }
   if (drag) {
     const dx = hov[0] - drag.q0[0], dz = hov[1] - drag.q0[1];
-    if (dx || dz) { drag.moved = true; work = JSON.parse(drag.snap); applyMove(work, drag.sel, drag.att, dx, dz); m = analyze(work); }
+    if ((dx || dz) && (dx !== drag.lx || dz !== drag.lz)) { drag.lx = dx; drag.lz = dz; drag.moved = true; work = JSON.parse(drag.snap); applyMove(work, drag.sel, drag.att, dx, dz); m = analyze(work); }
   }
   info(); draw();
 };
@@ -236,7 +236,9 @@ function highlight(h) {
   else if (h.t === 'div') { g.lineWidth = .5; g.globalAlpha = .55; line(o[0], o[1], o[2], o[3]); g.globalAlpha = 1; }
   else { g.beginPath(); g.arc(o.x, o.z, h.t === 'light' ? .6 : 1.2, 0, 7); g.stroke(); }
 }
-function draw() {
+let drawRaf = 0;
+function draw() { if (!drawRaf) drawRaf = requestAnimationFrame(() => { drawRaf = 0; drawNow(); }); }   // gabungkan banyak permintaan jadi satu gambar per frame
+function drawNow() {
   if (!m || !work) return;
   const s = view.s; g.setTransform(dpr, 0, 0, dpr, 0, 0); g.fillStyle = '#0f1115'; g.fillRect(0, 0, W, H);
   g.setTransform(dpr * s, 0, 0, dpr * s, dpr * (W / 2 - view.cx * s), dpr * (H / 2 - view.cz * s));

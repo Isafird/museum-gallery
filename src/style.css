@@ -115,3 +115,81 @@ body:not(.playing) #bar,body:not(.playing) #dot,body:not(.playing) #hint{display
 #plprops{display:flex;gap:8px;padding:6px 10px;align-items:center;flex-wrap:wrap;flex:none;min-height:46px;box-sizing:border-box;background:#14161a;border-top:1px solid #23272e}
 #plprops label{flex-direction:row;align-items:center;gap:6px}
 #pinfo{min-height:2.8em;box-sizing:border-box}
+
+/* ===== Tata letak HP / layar sempit: tidak ada tombol yang saling menimpa ===== */
+button{touch-action:manipulation}
+/* kiri atas: status room dan lencana akses ditumpuk dalam satu wadah */
+#tl{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;z-index:4;display:flex;flex-direction:column;gap:6px;align-items:flex-start;max-width:min(440px,calc(100vw - 20px));pointer-events:none}
+#hud,#badge{position:static;top:auto;left:auto;max-width:100%;box-sizing:border-box}
+#barbtn{display:none}
+#barlist{display:flex;gap:8px}
+#touch{display:none}
+
+/* chat: baris terbaru muncul sebentar, lalu hilang. Tombol Chat / Riwayat membuka panel penuh */
+#chat{position:fixed;left:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 74px);width:min(360px,calc(100vw - 20px));z-index:5;display:none;flex-direction:column;gap:8px;pointer-events:none;box-sizing:border-box}
+body.playing #chat{display:flex}
+#chhead,#chform{display:none}
+#chlog{display:flex;flex-direction:column;justify-content:flex-end;gap:3px;max-height:150px;overflow:hidden}
+.cl{background:rgba(22,24,29,.72);padding:4px 10px;border-radius:8px;font-size:14px;line-height:1.35;overflow-wrap:anywhere;width:fit-content;max-width:100%;box-sizing:border-box}
+.cl b{color:var(--ac);margin-right:6px;font-weight:600}
+.cl.self b{color:#f0b35c}
+.cl.sys{font-style:italic;color:var(--mut)}
+.cl i{display:none;font-size:11px;font-style:normal;opacity:.55;margin-left:8px}
+#chat:not(.open) .cl.old{display:none}
+#chat.open{pointer-events:auto;background:rgba(22,24,29,.94);border:1px solid #2c3038;border-radius:12px;padding:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 16px)}
+#chat.open #chhead{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--mut)}
+#chat.open #chform{display:flex;gap:8px}
+#chat.open #chform input{flex:1;min-width:0;font-size:16px}
+#chat.open #chlog{max-height:min(40vh,320px);overflow-y:auto;justify-content:flex-start}
+#chat.open .cl{background:none;padding:2px 0;width:auto}
+#chat.open .cl.old{display:block}
+#chat.open .cl i{display:inline}
+body.chatopen #hint{display:none!important}
+
+@media(max-width:900px),(pointer:coarse){
+  /* tombol atas dilipat jadi satu tombol Menu */
+  #tl{max-width:calc(100vw - 112px)}
+  #bar{flex-direction:column;flex-wrap:nowrap;align-items:flex-end;gap:6px;max-width:none}
+  #barbtn{display:block}
+  #barlist{display:none;flex-direction:column;align-items:stretch;gap:6px;min-width:200px;max-width:calc(100vw - 20px);background:rgba(22,24,29,.94);border:1px solid #2c3038;padding:8px;border-radius:12px;max-height:calc(100dvh - 90px);overflow:auto}
+  #bar.open #barlist{display:flex}
+  #barlist button{text-align:left;background:rgba(255,255,255,.08)}
+  #barlist .cloudonly{display:none}
+  body.cloud #barlist .cloudonly{display:block}
+  #barlist #membtn[style*="none"]{display:none}
+  #toast{top:30%;max-width:calc(100vw - 32px);text-align:center}
+  #hint{top:calc(50% + 26px);bottom:auto;white-space:normal;text-align:center;max-width:calc(100vw - 190px)}
+  #chat{width:min(300px,calc(100vw - 130px));bottom:calc(env(safe-area-inset-bottom,0px) + 20px)}
+  #chlog{max-height:120px}
+  .cl{font-size:13px}
+  /* panel chat penuh di atas layar supaya tidak tertutup keyboard HP */
+  #chat.open{top:calc(env(safe-area-inset-top,0px) + 8px);bottom:auto;left:8px;right:8px;width:auto}
+  #chat.open #chlog{max-height:34vh}
+  body.chatopen #tl,body.chatopen #bar,body.chatopen #touch{display:none!important}
+}
+@media(pointer:coarse){
+  /* tombol layar sentuh: kanan bawah */
+  body.playing #touch{display:flex}
+  #touch{position:fixed;right:calc(env(safe-area-inset-right,0px) + 16px);bottom:calc(env(safe-area-inset-bottom,0px) + 22px);z-index:4;flex-direction:column;align-items:center;gap:14px}
+  #touch button{border-radius:50%;background:rgba(22,24,29,.62);color:var(--fg);border:2px solid rgba(255,255,255,.35);padding:0;font-weight:600;touch-action:none;-webkit-user-select:none;user-select:none}
+  #jumpbtn{width:74px;height:74px;font-size:14px}
+  #chatq{width:54px;height:54px;font-size:12px}
+  .tool kbd,.chip kbd,#bar kbd{display:none}
+  body.playing{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  input,select{-webkit-user-select:text;user-select:text}
+  #tl>*,#bar{pointer-events:auto}
+}
+#tl>*{pointer-events:auto}
+
+/* editor foto & denah di layar sempit */
+@media(max-width:700px){
+  #edtop{flex-wrap:wrap}
+  #ttl{flex:1 1 100%}
+  #edstat{margin-right:auto}
+  #pltools{padding:6px 8px}
+  #plopts{gap:6px;padding:6px 8px}
+  #plopts label{font-size:12px}
+  #pinfo{padding:0 10px 8px}
+  .hbox{padding:16px}
+}
+body:has(#bar.open) #touch{display:none!important}   /* menu terbuka: sembunyikan tombol Chat/Loncat supaya tidak bertumpuk */
