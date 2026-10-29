@@ -8,6 +8,7 @@ import { openModal, toggleModal } from './modal.js';
 import { editorKey } from './editor.js';
 import { isLocked, lockCursor, toggleCursor } from './cursor.js';
 import { openChat, closeChat, isChatOpen } from './chat.js';
+import { toggleFullscreen } from './fullscreen.js';
 
 export const keys = {};            // tombol yang sedang ditekan
 export const mv = { x: 0, y: 0 };  // joystick sentuh (-1..1)
@@ -39,6 +40,7 @@ addEventListener('keydown', e => {
   if (e.code === 'Space') e.preventDefault();                  // loncat: jangan menggulung halaman / menekan tombol yang fokus
   if (e.code === 'KeyE' || e.code === 'Enter') interact();
   else if (e.code === 'KeyV') toggleCam();
+  else if (e.code === 'KeyF') toggleFullscreen();
   else if (e.code === 'Tab') toggleCursor();
   else if (e.code === 'KeyH') toggleHelp();
   else if (e.code === 'KeyM') openMembers();

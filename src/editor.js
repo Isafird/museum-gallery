@@ -3,6 +3,7 @@ import { entries } from './gallery.js';
 import { FILTERS, FRAME_STYLES } from './config.js';
 import { getSource, update, updateTitle, replacePhoto, resetEntry, saveAll, hasPending } from './photos.js';
 import { isLocked, lockCursor } from './cursor.js';
+import { frameSwatch } from './frametex.js';
 
 const $ = id => document.getElementById(id);
 const ed = $('editor'), stage = $('stage'), wrap = $('wrap'), cv = $('edc'), cropEl = $('crop'), ttl = $('ttl');
@@ -124,11 +125,11 @@ function panel() {
   document.querySelectorAll('#tools [data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   const chip = (label, on, fn, color) => {
     const b = document.createElement('button'); b.className = 'chip' + (on ? ' on' : '');
-    if (color) { const s = document.createElement('span'); s.className = 'sw'; s.style.background = color; b.append(s); }
+    if (color) { const s = document.createElement('span'); s.className = 'sw'; s.style.background = color.startsWith('url(') ? color + ' center/cover' : color; b.append(s); }
     b.append(label); b.onclick = fn; p.append(b); return b;
   };
   if (tab === 'filter') FILTERS.forEach(f => chip(f.name, d.filter === f.id, () => pick('filter', f.id)));
-  if (tab === 'frame') FRAME_STYLES.forEach(f => chip(f.name, d.frame === f.id, () => pick('frame', f.id), hex(f.color)));
+  if (tab === 'frame') FRAME_STYLES.forEach(f => chip(f.name, d.frame === f.id, () => pick('frame', f.id), frameSwatch(f.id) || hex(f.color)));
   if (tab === 'crop') {
     ASPECTS.forEach(a => chip(a.name, aspect === a.r, () => { aspect = a.r; panel(); }));
     chip('Terapkan [Enter]', false, applyCrop).classList.add('primary');

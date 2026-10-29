@@ -22,6 +22,8 @@ npm run dev
 | `src/gallery.js` | Membangun museum 3D dari denah (dinding, pintu, lampu, bingkai, papan nama, lampu sorot) |
 | `src/avatar.js` | Bentuk karakter, daftar topi, animasi jalan |
 | `src/network.js` | Multiplayer (host + relay lewat PeerJS) |
+| `src/fullscreen.js` | Tombol layar penuh (iPhone: lewat Tambah ke Layar Utama, lihat `public/manifest.webmanifest`) |
+| `src/frametex.js` | Tekstur motif bingkai (serat kayu, emas berukir, bintik, dll), digambar dengan canvas |
 | `src/chat.js` | Kotak chat dan riwayat (gelembung di atas kepala ada di `avatar.js`, pengiriman di `network.js`) |
 | `src/controls.js` | Keyboard, mouse, sentuh |
 | `src/ui.js` | Formulir karakter, tombol atas, bantuan |
@@ -47,6 +49,7 @@ npm run dev
 |---|---|
 | W A S D / panah | Jalan |
 | Shift | Lari |
+| F | Layar penuh |
 | Spasi | Loncat (di HP: tombol Loncat) |
 | T atau Enter | Chat: ketik lalu Enter. Esc menutup. Riwayat lewat tombol Chat |
 | V | Ganti kamera orang pertama / ketiga |

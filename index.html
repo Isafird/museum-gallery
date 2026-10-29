@@ -3,6 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16181d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Museum Foto">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Museum Foto 3D</title>
 </head>
 <body>
@@ -10,6 +17,7 @@
   <header>
     <h1>Museum Foto</h1>
     <p class="sub">Jelajahi galeri 3D, pasang fotomu, dan ajak teman.</p>
+    <button id="fsstart" class="chip fsbtn" type="button" data-on="Layar penuh" data-off="Keluar layar penuh">Layar penuh</button>
   </header>
 
   <section>
@@ -48,6 +56,7 @@
     <button id="menubtn">Menu [Q]</button>
     <button id="cambtn">Kamera: orang pertama [V]</button>
     <button id="chatbtn">Chat [T]</button>
+    <button id="fsbtn" class="fsbtn" data-on="Layar penuh [F]" data-off="Keluar layar penuh [F]">Layar penuh [F]</button>
     <button id="curbtn">Kursor [Tab]</button>
     <button id="helpbtn">Bantuan [H]</button>
     <button id="plnbtn">Denah [L]</button>
@@ -92,6 +101,7 @@
   <div class="grid">
     <kbd>W A S D</kbd><span>Jalan (tombol panah juga bisa)</span>
     <kbd>Shift</kbd><span>Lari</span>
+    <kbd>F</kbd><span>Layar penuh (di iPhone: Bagikan, lalu Tambah ke Layar Utama)</span>
     <kbd>Spasi</kbd><span>Loncat (di HP: tombol Loncat)</span>
     <kbd>T</kbd><span>Chat: ketik pesan lalu Enter. Muncul di atas kepalamu, ada riwayatnya. Esc untuk menutup (Enter juga bisa kalau tidak membidik foto)</span>
     <kbd>V</kbd><span>Ganti kamera orang pertama / ketiga</span>

@@ -112,7 +112,7 @@ function unionEdges(P) {
 }
 
 export function analyze(l) {
-  const doors = l.doors || [], polys = l.shapes.map(shapePoly).concat(doors.map(doorPoly)), walls = unionEdges(polys);
+  const doors = l.doors || [], polys = l.shapes.map(shapePoly).concat(doors.map(doorPoly)), walls = unionEdges(polys), outer = walls.slice();
   (l.dividers || []).forEach(([x1, z1, x2, z2]) => {          // dinding pembatas, dipotong di tempat pintu
     const L = Math.hypot(x2 - x1, z2 - z1); if (L < 1e-6) return;
     const ux = (x2 - x1) / L, uz = (z2 - z1) / L, nx = -uz, nz = ux, cuts = [];
@@ -121,7 +121,21 @@ export function analyze(l) {
       const s = (d.x - x1) * ux + (d.z - z1) * uz; cuts.push([s - DOOR_W / 2, s + DOOR_W / 2]);
     });
     cuts.sort((a, b) => a[0] - b[0]); let cur = 0;
-    const piece = (a, b) => { if (b - a > .05) walls.push({ x1: x1 + ux * a, z1: z1 + uz * a, x2: x1 + ux * b, z2: z1 + uz * b, nx, nz, div: true }); };
+    // Bagian yang berimpit dengan dinding tepi ruangan (mis. diameter setengah lingkaran) tidak perlu dinding kedua: dua dinding di tempat yang sama tampak tidak menyatu
+    const covered = []; outer.forEach(o => {
+      const ox = o.x2 - o.x1, oz = o.z2 - o.z1, ol = Math.hypot(ox, oz) || 1;
+      if (Math.abs(ox * uz - oz * ux) / ol > .01) return;                                    // tidak sejajar
+      if (Math.abs((o.x1 - x1) * nx + (o.z1 - z1) * nz) > .03) return;                       // tidak segaris
+      const s1 = (o.x1 - x1) * ux + (o.z1 - z1) * uz, s2 = (o.x2 - x1) * ux + (o.z2 - z1) * uz;
+      covered.push([Math.min(s1, s2) - .02, Math.max(s1, s2) + .02]);
+    });
+    covered.sort((p, q) => p[0] - q[0]);
+    const piece = (a, b) => {
+      let cur = a;
+      const emit = (s, e) => { if (e - s > .05) walls.push({ x1: x1 + ux * s, z1: z1 + uz * s, x2: x1 + ux * e, z2: z1 + uz * e, nx, nz, div: true }); };
+      covered.forEach(([c0, c1]) => { if (c1 <= cur || c0 >= b) return; emit(cur, Math.max(cur, c0)); cur = Math.max(cur, c1); });
+      emit(cur, b);
+    };
     cuts.forEach(([a, b]) => { if (a > cur) piece(cur, Math.min(a, L)); cur = Math.max(cur, b); }); if (cur < L) piece(cur, L);
   });
   const all = polys.flat(), b = { minx: Infinity, maxx: -Infinity, minz: Infinity, maxz: -Infinity };

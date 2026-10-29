@@ -3,7 +3,7 @@ import './style.css';
 import { renderer, scene, camera } from './scene.js';
 import { state } from './state.js';
 import { ROOM, SPEED } from './config.js';
-import { pics, walkable, museum } from './gallery.js';
+import { pics, walkable, museum, entries, setFrameStyle } from './gallery.js';
 import { makeAvatar, animateAvatar, sayOver, tickBubble } from './avatar.js';
 import { connect, disconnect, updateOthers, sendChat } from './network.js';
 import { initChat, clearChat, closeChat } from './chat.js';
@@ -49,7 +49,7 @@ async function backToMenu() {
   showStart(); toast('Kembali ke menu awal');
 }
 
-if (location.search.includes('debug')) window.__s = { state, walkable };   // hook untuk pengujian otomatis (tambahkan ?debug ke alamat)
+if (location.search.includes('debug')) window.__s = { state, walkable, entries, setFrameStyle };   // hook untuk pengujian otomatis (tambahkan ?debug ke alamat)
 if (new URLSearchParams(location.search).has('cek')) import('./diagnose.js').then(m => m.run());   // halaman diagnosis Supabase
 const ray = new THREE.Raycaster(), clock = new THREE.Clock();
 

@@ -7,6 +7,7 @@ import { toast } from './toast.js';
 import { toggleModal } from './modal.js';
 import { openPlan } from './plan.js';
 import { openChat, toggleHistory } from './chat.js';
+import { initFullscreen } from './fullscreen.js';
 import * as cloud from './cloud.js';
 
 const $ = id => document.getElementById(id);
@@ -97,6 +98,7 @@ export function initUI({ onLook, onStart, onMenu }) {
   $('helpbtn').onclick = e => { toggleHelp(); e.currentTarget.blur(); };
   $('help').onclick = toggleHelp;
   $('plnbtn').onclick = e => { openPlan(); e.currentTarget.blur(); };
+  initFullscreen();
   $('chatbtn').onclick = e => { toggleHistory(); e.currentTarget.blur(); };
   $('chatq').onclick = e => { openChat(); e.currentTarget.blur(); };
   $('barbtn').onclick = e => { const b = $('bar'), o = !b.classList.contains('open'); b.classList.toggle('open', o); e.currentTarget.setAttribute('aria-expanded', o); e.currentTarget.blur(); };

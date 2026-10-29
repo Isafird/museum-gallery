@@ -10,7 +10,7 @@ const TOOLS = [['pan', 'Geser'], ['sel', 'Pilih'], ['rect', 'Kotak'], ['circle',
   ['ell', 'Bentuk L'], ['tee', 'Bentuk T'], ['plus', 'Plus'], ['poly', 'Bebas'], ['wall', 'Dinding'], ['door', 'Pintu'], ['frame', 'Bingkai'], ['light', 'Lampu'], ['del', 'Hapus']];
 const HINT = {
   pan: 'Seret untuk menggeser. Roda mouse untuk zoom.',
-  sel: 'Klik objek untuk memilih. Seret untuk memindahkan, R untuk memutar, Delete untuk menghapus.',
+  sel: 'Klik objek untuk memilih. Seret untuk memindahkan. Tarik kotak kecil di tepi ruangan untuk mengubah ukuran. R memutar, Delete menghapus.',
   poly: 'Klik titik-titik sudut. Klik titik awal atau tekan Enter untuk menutup.',
   wall: 'Seret untuk membuat dinding pembatas.', frame: 'Arahkan ke dinding lalu klik untuk menaruh bingkai.',
   door: 'Arahkan ke dinding lalu klik untuk membuat pintu. Pintu juga menyambung dua ruangan yang hanya bersentuhan.',
@@ -107,13 +107,14 @@ function hit(p) {
 const onEdge = (poly, x, z) => poly.some((a, i) => { const b = poly[(i + 1) % poly.length]; return segD(x, z, a[0], a[1], b[0], b[1]) < .06; });
 // Bingkai, pintu, dan lampu yang menempel pada objek ikut berpindah / berputar bersamanya
 function attachedTo(h) {
-  const o = { frames: [], doors: [], lights: [] }; let on, inside = () => false;
+  const o = { frames: [], doors: [], lights: [], divs: [] }; let on, inside = () => false;
   if (h.t === 'shape') { const poly = shapePoly(work.shapes[h.i]); on = (x, z) => onEdge(poly, x, z); inside = (x, z) => pip([x, z], poly); }
   else if (h.t === 'div') { const d = work.dividers[h.i]; on = (x, z) => segD(x, z, d[0], d[1], d[2], d[3]) < .06; }
   else return o;
   work.frames.forEach((f, i) => { if (on(f.x, f.z)) o.frames.push(i); });
   work.doors.forEach((d, i) => { if (on(d.x, d.z)) o.doors.push(i); });
   work.lights.forEach((l, i) => { if (inside(l.x, l.z)) o.lights.push(i); });
+  if (h.t === 'shape') work.dividers.forEach((d, i) => { if (on(d[0], d[1]) && on(d[2], d[3])) o.divs.push(i); });   // dinding di tepi / diameter ikut
   return o;
 }
 const r3 = v => Math.round(v * 1000) / 1000;
@@ -122,6 +123,7 @@ function applyMove(w, h, att, dx, dz) {
   else if (h.t === 'div') { const d = w.dividers[h.i]; w.dividers[h.i] = [r3(d[0] + dx), r3(d[1] + dz), r3(d[2] + dx), r3(d[3] + dz)]; }
   else if (h.t === 'light') { const l = w.lights[h.i]; l.x = r3(l.x + dx); l.z = r3(l.z + dz); }
   ['frames', 'doors', 'lights'].forEach(k => att[k].forEach(i => { const o = w[k][i]; o.x = r3(o.x + dx); o.z = r3(o.z + dz); }));
+  att.divs.forEach(i => { const d = w.dividers[i]; w.dividers[i] = [r3(d[0] + dx), r3(d[1] + dz), r3(d[2] + dx), r3(d[3] + dz)]; });
 }
 function rotateSel() {
   if (!sel || (sel.t !== 'shape' && sel.t !== 'div')) { toast('Pilih ruangan atau dinding dulu (alat Pilih)'); return; }
@@ -140,8 +142,51 @@ function rotateSel() {
     att.frames.forEach(i => { const f = work.frames[i]; [f.x, f.z] = T(f.x, f.z); f.a = rotA(f.a); });
     att.doors.forEach(i => { const d = work.doors[i]; [d.x, d.z] = T(d.x, d.z); d.a = rotA(d.a); });
     att.lights.forEach(i => { const l = work.lights[i]; [l.x, l.z] = T(l.x, l.z); });
+    att.divs.forEach(i => { const d = work.dividers[i], a = T(d[0], d[1]), b = T(d[2], d[3]); work.dividers[i] = [a[0], a[1], b[0], b[1]]; });
   });
 }
+// ---------- ubah ukuran ruangan yang sudah terpasang ----------
+// Kotak kecil di sudut dan tengah sisi kotak pembatas ruangan yang dipilih. [ix, iz]: -1 = sisi min, 1 = sisi maks, 0 = tengah.
+const HID = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
+const boxOf = s => { const b = polyBounds(shapePoly(s)); return { x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1 }; };
+const handlesOf = s => s.k === 'semi' ? HID.filter(h => h[0] && h[1]) : HID;      // setengah lingkaran: hanya sudut (bentuknya tetap 2:1)
+const handlePos = (b, [ix, iz]) => [ix < 0 ? b.x0 : ix > 0 ? b.x1 : (b.x0 + b.x1) / 2, iz < 0 ? b.z0 : iz > 0 ? b.z1 : (b.z0 + b.z1) / 2];
+function hitHandle(p, px) {
+  if (tool !== 'sel' || !sel || sel.t !== 'shape' || !work.shapes[sel.i]) return null;
+  const s = work.shapes[sel.i], b = boxOf(s); let best = null, bd = px / view.s;
+  handlesOf(s).forEach(h => { const q = handlePos(b, h), d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < bd) { bd = d; best = h; } });
+  return best && { h: best, b, semi: s.k === 'semi' };
+}
+// Kotak baru setelah pegangan d.h ditarik ke titik q (sudah di-snap ke grid). Sisi di seberang pegangan tetap diam.
+function resizedBox(d, q) {
+  const [ix, iz] = d.h, b = d.b0, ax = ix < 0 ? b.x1 : b.x0, az = iz < 0 ? b.z1 : b.z0;
+  let { x0, z0, x1, z1 } = b;
+  if (d.semi) {                                                  // skala seragam; diameter (sisi panjang) kelipatan 1 grid
+    const ratio = (b.x1 - b.x0) / (b.z1 - b.z0), dx = Math.abs(q[0] - ax), dz = Math.abs(q[1] - az);
+    let long = ratio >= 1 ? Math.max(dx, dz * ratio) : Math.max(dz, dx / ratio);
+    long = Math.max(grid, Math.round(long / grid) * grid);
+    const w = ratio >= 1 ? long : long * ratio, h = ratio >= 1 ? long / ratio : long;
+    x0 = ix < 0 ? ax - w : ax; x1 = ix < 0 ? ax : ax + w; z0 = iz < 0 ? az - h : az; z1 = iz < 0 ? az : az + h;
+    return { x0, z0, x1, z1 };
+  }
+  if (ix) { let n = q[0]; if (Math.abs(n - ax) < grid) n = ax + (ix < 0 ? -grid : grid); x0 = Math.min(ax, n); x1 = Math.max(ax, n); }
+  if (iz) { let n = q[1]; if (Math.abs(n - az) < grid) n = az + (iz < 0 ? -grid : grid); z0 = Math.min(az, n); z1 = Math.max(az, n); }
+  return { x0, z0, x1, z1 };
+}
+// Terapkan kotak baru: bentuk diskalakan, bingkai / pintu / lampu yang menempel ikut bergeser (bingkai dan pintu ditempel ulang ke dinding terdekat)
+function applyResize(w, d, nb) {
+  const b = d.b0, sx = (nb.x1 - nb.x0) / (b.x1 - b.x0), sz = (nb.z1 - nb.z0) / (b.z1 - b.z0);
+  const fx = x => r3(nb.x0 + (x - b.x0) * sx), fz = z => r3(nb.z0 + (z - b.z0) * sz), s = w.shapes[d.sel.i];
+  if (s.k === 'poly') s.pts = s.pts.map(([x, z]) => [fx(x), fz(z)]);
+  else { s.x = r3(nb.x0); s.z = r3(nb.z0); s.w = r3(nb.x1 - nb.x0); s.h = r3(nb.z1 - nb.z0); }
+  d.att.lights.forEach(i => { const o = w.lights[i]; o.x = fx(o.x); o.z = fz(o.z); });
+  d.att.divs.forEach(i => { const v = w.dividers[i]; w.dividers[i] = [fx(v[0]), fz(v[1]), fx(v[2]), fz(v[3])]; });
+  const mm = analyze(w), base = analyze({ ...w, doors: [] });
+  d.att.frames.forEach(i => { const f = w.frames[i], x = fx(f.x), z = fz(f.z), sp = snapToWall(mm, x, z, .5); if (sp && sp.d < .8) { f.x = sp.x; f.z = sp.z; f.a = sp.a; } else { f.x = x; f.z = z; } });
+  d.att.doors.forEach(i => { const o = w.doors[i], x = fx(o.x), z = fz(o.z), sp = snapToWall(base, x, z, .5, DOOR_W / 2 + .05); if (sp && sp.d < .8) { o.x = sp.x; o.z = sp.z; o.a = sp.a; } else { o.x = x; o.z = z; } });
+}
+const CURSORS = { '-1,-1': 'nwse-resize', '1,1': 'nwse-resize', '1,-1': 'nesw-resize', '-1,1': 'nesw-resize', '0,-1': 'ns-resize', '0,1': 'ns-resize', '-1,0': 'ew-resize', '1,0': 'ew-resize' };
+
 function polyBounds(p) { const xs = p.map(q => q[0]), zs = p.map(q => q[1]); return { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) }; }
 function delSel() { if (!sel) return; const h = sel; sel = null; commit(() => { work[KEYS[h.t]].splice(h.i, 1); }); }
 function toggleLight() { if (sel && sel.t === 'light') commit(() => { const l = work.lights[sel.i]; l.on = !l.on; }); }
@@ -162,27 +207,36 @@ function renderProps() {
   } else if (sel.t === 'light') {
     label('Lampu ruangan'); chip(o.on ? 'Menyala (klik untuk mematikan)' : 'Mati (klik untuk menyalakan)', toggleLight, o.on); label('Spasi = nyala/mati');
   } else if (sel.t === 'door') label('Pintu (lebar 2,4 m)');
-  else { label(sel.t === 'shape' ? 'Ruangan' : 'Dinding pembatas'); chip('Putar 90° [R]', rotateSel); label('Seret untuk memindahkan. Bingkai dan lampu yang menempel ikut.'); }
+  else { label(sel.t === 'shape' ? 'Ruangan' : 'Dinding pembatas'); chip('Putar 90° [R]', rotateSel); label(sel.t === 'shape' ? 'Seret untuk memindahkan, tarik kotak kecil di tepinya untuk mengubah ukuran. Bingkai dan lampu yang menempel ikut.' : 'Seret untuk memindahkan. Bingkai dan lampu yang menempel ikut.'); }
   chip('Hapus [Del]', delSel);
 }
 
 // ---------- mouse / sentuh ----------
 const wpt = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left - r.width / 2) / view.s + view.cx, (e.clientY - r.top - r.height / 2) / view.s + view.cz]; };
 const sn = v => Math.round(v / grid) * grid, snp = p => [sn(p[0]), sn(p[1])];
+// Ujung dinding menempel ke sudut / ujung dinding yang sudah ada (mis. ujung diameter setengah lingkaran yang tidak jatuh di grid); selain itu ikut grid
+function wallPt(p) {
+  let best = null, bd = 10 / view.s;
+  m.walls.forEach(w => [[w.x1, w.z1], [w.x2, w.z2]].forEach(([x, z]) => { const d = Math.hypot(x - p[0], z - p[1]); if (d < bd) { bd = d; best = [r3(x), r3(z)]; } }));
+  return best || snp(p);
+}
+const snapFor = p => tool === 'wall' ? wallPt(p) : snp(p);
 function bbox(a, b) {   // kotak dari dua titik; lingkaran dipaksa persegi, setengah lingkaran dipaksa 2:1
   let w = Math.abs(b[0] - a[0]), h = Math.abs(b[1] - a[1]);
   if (tool === 'circle') w = h = Math.max(w, h);
   if (tool === 'semi') {
-    if (rot % 2 === 0) { w = Math.max(2 * grid, Math.round(w / (2 * grid)) * 2 * grid); h = w / 2; } else { h = Math.max(2 * grid, Math.round(h / (2 * grid)) * 2 * grid); w = h / 2; }
+    if (rot % 2 === 0) { w = Math.max(grid, Math.round(w / grid) * grid); h = w / 2; } else { h = Math.max(grid, Math.round(h / grid) * grid); w = h / 2; }   // sisi datar (diameter) kelipatan 1 grid
   }
   return { x: b[0] >= a[0] ? a[0] : a[0] - w, z: b[1] >= a[1] ? a[1] : a[1] - h, w, h };
 }
 const kindOf = () => tool === 'circle' ? 'ellipse' : tool;
 cv.oncontextmenu = e => e.preventDefault();
 cv.onpointerdown = e => {
-  cv.setPointerCapture(e.pointerId); const p = wpt(e), q = snp(p);
+  cv.setPointerCapture(e.pointerId); const p = wpt(e), q = snapFor(p);
   if (tool === 'pan' || e.button === 1 || e.button === 2) { pan = { x: e.clientX, y: e.clientY, cx: view.cx, cz: view.cz }; return; }
   if (tool === 'sel') {
+    const hh = hitHandle(p, e.pointerType === 'touch' ? 20 : 10);
+    if (hh) { drag = { kind: 'resize', h: hh.h, b0: hh.b, semi: hh.semi, snap: JSON.stringify(work), sel, att: attachedTo(sel), moved: false, last: '' }; return; }
     sel = hit(p); renderProps();
     if (sel && ['shape', 'div', 'light'].includes(sel.t)) drag = { q0: q, snap: JSON.stringify(work), sel, att: attachedTo(sel), moved: false };
     draw(); return;
@@ -202,9 +256,14 @@ cv.onpointerdown = e => {
   start = q; hov = q; draw();
 };
 cv.onpointermove = e => {
-  raw = wpt(e); hov = snp(raw);
+  raw = wpt(e); hov = snapFor(raw);
   if (pan) { view.cx = pan.cx - (e.clientX - pan.x) / view.s; view.cz = pan.cz - (e.clientY - pan.y) / view.s; }
-  if (drag) {
+  if (!drag && !pan && tool === 'sel') { const hh = hitHandle(raw, e.pointerType === 'touch' ? 20 : 10); cv.style.cursor = hh ? CURSORS[hh.h] : 'default'; }
+  else if (!drag && !pan) cv.style.cursor = '';
+  if (drag && drag.kind === 'resize') {
+    const nb = resizedBox(drag, hov), key = [nb.x0, nb.z0, nb.x1, nb.z1].join();
+    if (key !== drag.last) { drag.last = key; drag.moved = true; work = JSON.parse(drag.snap); applyResize(work, drag, nb); m = analyze(work); }
+  } else if (drag) {
     const dx = hov[0] - drag.q0[0], dz = hov[1] - drag.q0[1];
     if ((dx || dz) && (dx !== drag.lx || dz !== drag.lz)) { drag.lx = dx; drag.lz = dz; drag.moved = true; work = JSON.parse(drag.snap); applyMove(work, drag.sel, drag.att, dx, dz); m = analyze(work); }
   }
@@ -213,9 +272,9 @@ cv.onpointermove = e => {
 cv.onpointerup = e => {
   pan = null;
   if (drag) { if (drag.moved) { hist.push(drag.snap); if (hist.length > 60) hist.shift(); } drag = null; reanalyze(); draw(); return; }
-  if (!start) return; const q = snp(wpt(e)), a = start; start = null;
+  if (!start) return; const q = snapFor(wpt(e)), a = start; start = null;
   if (tool === 'wall') { if (a[0] !== q[0] || a[1] !== q[1]) commit(() => addWall(a, q)); else draw(); return; }
-  const b = bbox(a, q); if (b.w < grid || b.h < grid) { draw(); return; }
+  const b = bbox(a, q); if (Math.min(b.w, b.h) < (tool === 'semi' ? grid / 2 : grid)) { draw(); return; }
   commit(() => addShape({ k: kindOf(), ...b, r: rot }));
 };
 cv.ondblclick = () => { if (tool === 'poly' && pts.length > 2) closePoly(); };
@@ -274,6 +333,11 @@ function drawNow() {
     }
   }
   if (sel) highlight(sel);
+  if (sel && sel.t === 'shape' && tool === 'sel' && work.shapes[sel.i]) {                      // kotak pembatas + pegangan ubah ukuran
+    const s0 = work.shapes[sel.i], b = boxOf(s0), hs = 5 / view.s;
+    g.setLineDash([.35, .25]); g.strokeStyle = 'rgba(255,159,67,.8)'; g.lineWidth = 1.5 / view.s; g.strokeRect(b.x0, b.z0, b.x1 - b.x0, b.z1 - b.z0); g.setLineDash([]);
+    handlesOf(s0).forEach(h => { const [x, z] = handlePos(b, h); g.fillStyle = '#fff'; g.strokeStyle = HL; g.lineWidth = 2 / view.s; g.beginPath(); g.rect(x - hs, z - hs, 2 * hs, 2 * hs); g.fill(); g.stroke(); });
+  }
   const pv = preview();
   if (pv) { path(pv); g.fillStyle = 'rgba(143,180,217,.25)'; g.fill(); g.strokeStyle = '#8fb4d9'; g.lineWidth = 2 / s; g.stroke(); }
   if (start && tool === 'wall' && hov) { g.strokeStyle = '#8fb4d9'; g.lineWidth = .3; g.globalAlpha = .6; line(start[0], start[1], hov[0], hov[1]); g.globalAlpha = 1; }
