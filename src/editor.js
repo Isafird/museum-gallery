@@ -8,6 +8,7 @@ import { getSource, update, updateTitle, replacePhoto, resetEntry, saveAll, hasP
 import { isLocked, lockCursor } from './cursor.js';
 import { frameSwatch } from './frametex.js';
 import { toast } from './toast.js';
+import { downloadOriginal, downloadEdited, downloadFramed } from './download.js';
 
 const $ = id => document.getElementById(id);
 const ed = $('editor'), stage = $('stage'), wrap = $('wrap'), cv = $('edc'), cropEl = $('crop'), ttl = $('ttl');
@@ -26,7 +27,7 @@ export function openEditor(i) {
 }
 export function closeEditor() {
   if (!state.viewing) return;
-  cropping = false; ed.classList.remove('open'); $('adj').classList.remove('open'); state.viewing = false;
+  cropping = false; dl.classList.remove('open'); ed.classList.remove('open'); $('adj').classList.remove('open'); state.viewing = false;
   if (hasPending()) saveAll();                       // simpan yang belum tersimpan
   if (state.relock) lockCursor();
 }
@@ -36,6 +37,17 @@ const LABEL = { saved: 'Tersimpan ✓', pending: 'Belum tersimpan...', saving: '
 function setStat(st) { const el = $('edstat'); el.textContent = LABEL[st] || ''; el.dataset.s = st; }
 addEventListener('save-status', e => setStat(e.detail));
 $('edsave').onclick = () => saveAll();
+// ---------- unduh gambar / video (boleh untuk semua yang bisa melihat) ----------
+const dl = $('dlmenu');
+function dlOpen(on) {
+  dl.classList.toggle('open', on); if (!on) return; dl.textContent = ''; const e = entries[idx];
+  const item = (t, fn) => { const b = document.createElement('button'); b.className = 'chip'; b.textContent = t; b.onclick = async () => { dlOpen(false); try { await fn(idx); } catch (err) { toast('Gagal mengunduh'); } }; dl.append(b); };
+  if (e.vid) item('Video asli', downloadOriginal);
+  else { item('Foto asli', downloadOriginal); item('Foto setelah crop / putar / filter', downloadEdited); }
+  item('Gambar dengan bingkai', downloadFramed);
+}
+$('eddl').onclick = ev => { ev.stopPropagation(); dlOpen(!dl.classList.contains('open')); };
+document.addEventListener('click', ev => { if (dl.classList.contains('open') && !ev.target.closest('#dlmenu')) dlOpen(false); });
 
 // ---------- gambar di editor ----------
 function drawRaw() {

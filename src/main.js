@@ -81,6 +81,12 @@ function placeCamera(t) {
     return;
   }
   me.rotation.y = yaw; me.visible = state.third;
+  if (state.cam === 2) {               // kamera dari depan: menghadap karakter, mundur kalau terhalang dinding
+    const cp = Math.cos(pitch); let d = 3, cx = P.x, cz = P.z;
+    for (; d > .4; d -= .4) { cx = P.x - Math.sin(yaw) * cp * d; cz = P.z - Math.cos(yaw) * cp * d; if (walkable(cx, cz, .25)) break; }
+    camera.position.set(cx, Math.max(.4, Math.min(H - .2, 1.55 + P.y + Math.sin(pitch) * d + .3)), cz);
+    camera.lookAt(P.x, 1.45 + P.y, P.z); return;
+  }
   if (!state.third) { camera.position.set(P.x, 1.65 + P.y, P.z); camera.rotation.set(pitch, yaw, 0); return; }
   const cp = Math.cos(pitch); let d = 3.2, cx = P.x, cz = P.z;   // orang ketiga: mundur sampai kamera tidak tembus dinding
   for (; d > .4; d -= .4) { cx = P.x + Math.sin(yaw) * cp * d; cz = P.z + Math.cos(yaw) * cp * d; if (walkable(cx, cz, .25)) break; }
@@ -118,7 +124,7 @@ function loop() {
   placeCamera(t); updateOthers(dt, t); updateLamps(dt, P.x, P.z); updateVideos(camera); autoQuality(performance.now());
 
   state.target = -1;
-  if (state.active && !state.viewing) {
+  if (state.active && !state.viewing && state.cam !== 2) {
     ray.setFromCamera({ x: 0, y: 0 }, camera);
     const h = ray.intersectObjects(pics)[0];
     if (h && h.distance < (state.third ? 9 : 6)) state.target = h.object.userData.i;

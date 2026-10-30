@@ -2,7 +2,7 @@
 export const ROOM = { H: 4.5 };                   // tinggi ruangan (meter). Bentuk dan luas ada di denah (layout.js)
 export const SPEED = 3.6;                          // kecepatan jalan
 export const PEER_PREFIX = 'museumfoto-';          // awalan ID room multiplayer
-export const DEFAULT_LOOK = { skin: '#e0ac84', shirt: '#3b6ea5', pants: '#2c2f3a', hat: 0, hatc: '#c0392b', top: 0, bottom: 0, body: 0, face: 0 };
+export const DEFAULT_LOOK = { skin: '#e0ac84', shirt: '#3b6ea5', pants: '#2c2f3a', hat: 0, hatc: '', hornT: 0, tornT: 0, ornc: '', top: 0, bottom: 0, body: 0, face: 0 };
 
 // Judul bawaan bingkai ke-1, ke-2, dst.
 export const TITLES = ['Fajar di Atas Kabut','Sawah Bertingkat','Pelabuhan Senja','Hutan Pagi','Lorong Kota Tua','Danau Sunyi','Gunung dan Awan','Pasar Terapung','Kebun Teh','Pantai Karang','Jembatan Lama','Langit Malam'];

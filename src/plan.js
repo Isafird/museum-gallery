@@ -10,7 +10,7 @@ const TOOLS = [['pan', 'Geser'], ['sel', 'Pilih'], ['rect', 'Kotak'], ['circle',
   ['ell', 'Bentuk L'], ['tee', 'Bentuk T'], ['plus', 'Plus'], ['poly', 'Bebas'], ['wall', 'Dinding'], ['door', 'Pintu'], ['frame', 'Bingkai'], ['light', 'Lampu'], ['del', 'Hapus']];
 const HINT = {
   pan: 'Seret untuk menggeser. Roda mouse untuk zoom.',
-  sel: 'Klik objek untuk memilih. Seret untuk memindahkan. Tarik kotak kecil di tepi ruangan untuk mengubah ukuran. R memutar, Delete menghapus.',
+  sel: 'Klik objek untuk memilih. Ctrl+C salin, Ctrl+V tempel di kursor, Ctrl+D duplikat. Seret untuk memindahkan. Tarik kotak kecil di tepi ruangan untuk mengubah ukuran. R memutar, Delete menghapus.',
   poly: 'Klik titik-titik sudut. Klik titik awal atau tekan Enter untuk menutup.',
   wall: 'Seret untuk membuat dinding pembatas.', frame: 'Arahkan ke dinding lalu klik untuk menaruh bingkai.',
   door: 'Arahkan ke dinding lalu klik untuk membuat pintu. Pintu juga menyambung dua ruangan yang hanya bersentuhan.',
@@ -189,12 +189,61 @@ const CURSORS = { '-1,-1': 'nwse-resize', '1,1': 'nwse-resize', '1,-1': 'nesw-re
 
 function polyBounds(p) { const xs = p.map(q => q[0]), zs = p.map(q => q[1]); return { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) }; }
 function delSel() { if (!sel) return; const h = sel; sel = null; commit(() => { work[KEYS[h.t]].splice(h.i, 1); }); }
+// ---------- salin / tempel (Ctrl+C, Ctrl+V, Ctrl+D) ----------
+// Yang disalin: objek terpilih. Untuk ruangan / dinding ikut bingkai, pintu, lampu, dan dinding yang menempel padanya. Foto bingkai tidak ikut disalin.
+let clip = null;
+const clone = o => JSON.parse(JSON.stringify(o));
+function originOf(h, o) {
+  if (h.t === 'shape') { const b = boxOf(o); return [(b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2]; }
+  if (h.t === 'div') return [(o[0] + o[2]) / 2, (o[1] + o[3]) / 2];
+  return [o.x, o.z];
+}
+function copySel(quiet) {
+  if (!sel || !work[KEYS[sel.t]][sel.i]) { toast('Pilih objek dulu (alat Pilih), lalu salin'); return false; }
+  const o = work[KEYS[sel.t]][sel.i], att = attachedTo(sel);
+  clip = { t: sel.t, obj: clone(o), origin: originOf(sel, o), att: { frames: att.frames.map(i => clone(work.frames[i])), doors: att.doors.map(i => clone(work.doors[i])), lights: att.lights.map(i => clone(work.lights[i])), divs: att.divs.map(i => clone(work.dividers[i])) } };
+  if (!quiet) toast('Disalin. Tekan Ctrl+V untuk menempel'); renderProps(); return true;
+}
+function pasteClip(at) {
+  if (!clip) { toast('Belum ada yang disalin'); return; }
+  const target = at || [clip.origin[0] + 2, clip.origin[1] + 2];
+  let made = null, skipped = 0;
+  commit(() => {
+    const t = clip.t, dx = r3(sn(target[0] - clip.origin[0])), dz = r3(sn(target[1] - clip.origin[1])), mv = o => { o.x = r3(o.x + dx); o.z = r3(o.z + dz); return o; };
+    const newId = () => { let id = 0; while (work.frames.some(o => o.id === id)) id++; return id; };
+    const addFr = f => { if (work.frames.length >= MAX_FRAMES) { skipped++; return null; } const n = { ...clone(f), id: newId() }; work.frames.push(n); return n; };
+    if (t === 'frame' || t === 'door') {                                                                   // ditempel ke dinding terdekat dari titik tujuan
+      const base = t === 'door' ? noDoors() : m, sp = snapToWall(base, target[0], target[1], .5, t === 'door' ? DOOR_W / 2 + .05 : undefined);
+      if (!sp) { toast('Arahkan kursor ke dinding untuk menempel'); return; }
+      const n = { ...clone(clip.obj), x: sp.x, z: sp.z, a: sp.a };
+      if (t === 'frame') { if (work.frames.some(o => Math.hypot(o.x - n.x, o.z - n.z) < FRAME_W * .9 && Math.cos(o.a - n.a) > .5)) { toast('Sudah ada bingkai di sini'); return; } const f = addFr(n); if (f) made = { t: 'frame', i: work.frames.length - 1 }; }
+      else { work.doors.push(n); made = { t: 'door', i: work.doors.length - 1 }; }
+    } else if (t === 'light') { if (work.lights.length >= MAX_LIGHTS) { toast(`Maksimal ${MAX_LIGHTS} lampu ruangan`); return; } work.lights.push(mv(clone(clip.obj))); made = { t: 'light', i: work.lights.length - 1 }; }
+    else if (t === 'div') { const d = clip.obj; work.dividers.push([r3(d[0] + dx), r3(d[1] + dz), r3(d[2] + dx), r3(d[3] + dz)]); made = { t: 'div', i: work.dividers.length - 1 }; }
+    else if (t === 'shape') {
+      const s = clone(clip.obj); if (s.k === 'poly') s.pts = s.pts.map(([x, z]) => [r3(x + dx), r3(z + dz)]); else mv(s);
+      if (work.shapes.length >= 60) { toast('Maksimal 60 ruangan'); return; }
+      work.shapes.push(s); made = { t: 'shape', i: work.shapes.length - 1 };
+      clip.att.frames.forEach(f => { addFr(mv(clone(f))); }); clip.att.doors.forEach(d => work.doors.push(mv(clone(d))));
+      clip.att.lights.forEach(l => { if (work.lights.length < MAX_LIGHTS) work.lights.push(mv(clone(l))); else skipped++; });
+      clip.att.divs.forEach(d => work.dividers.push([r3(d[0] + dx), r3(d[1] + dz), r3(d[2] + dx), r3(d[3] + dz)]));
+    }
+  });
+  if (made) { setTool('sel'); sel = made; renderProps(); draw(); toast(skipped ? `Ditempel (${skipped} item dilewati karena batas jumlah)` : 'Ditempel. Seret untuk memindahkan'); }
+}
+const pasteHere = () => pasteClip(raw ? snp(raw) : null);
+const duplicateSel = () => {
+  if (!copySel(true)) return; let at = null;
+  if (clip.t === 'frame' || clip.t === 'door') { const a = clip.obj.a, k = clip.t === 'door' ? DOOR_W + 1 : FRAME_W + .6; at = [clip.origin[0] + Math.cos(a) * k, clip.origin[1] - Math.sin(a) * k]; }   // bingkai / pintu: di sebelahnya sepanjang dinding
+  pasteClip(at);
+};
 function toggleLight() { if (sel && sel.t === 'light') commit(() => { const l = work.lights[sel.i]; l.on = !l.on; }); }
 const rotateAction = () => { if (tool === 'sel') rotateSel(); else { rot = (rot + 1) % 4; info(); draw(); } };
 
 // Panel pengaturan untuk objek yang dipilih
 function renderProps() {
   const box = $('plprops'); box.textContent = ''; if (!sel || !work) return;
+  const addClip = () => { const mk = (t, fn) => { const b = document.createElement('button'); b.className = 'chip'; b.textContent = t; b.onclick = e => { fn(); e.currentTarget.blur(); }; box.append(b); }; clipChips(box, mk); };
   const label = t => { const s = document.createElement('span'); s.className = 's'; s.textContent = t; box.append(s); };
   const chip = (t, fn, on) => { const b = document.createElement('button'); b.className = 'chip' + (on ? ' on' : ''); b.textContent = t; b.onclick = e => { fn(); e.currentTarget.blur(); }; box.append(b); return b; };
   const o = work[KEYS[sel.t]][sel.i]; if (!o) return;
@@ -210,7 +259,9 @@ function renderProps() {
   } else if (sel.t === 'door') label('Pintu (lebar 2,4 m)');
   else { label(sel.t === 'shape' ? 'Ruangan' : 'Dinding pembatas'); chip('Putar 90° [R]', rotateSel); label(sel.t === 'shape' ? 'Seret untuk memindahkan, tarik kotak kecil di tepinya untuk mengubah ukuran. Bingkai dan lampu yang menempel ikut.' : 'Seret untuk memindahkan. Bingkai dan lampu yang menempel ikut.'); }
   chip('Hapus [Del]', delSel);
+  addClip();
 }
+function clipChips(box, chip) { chip('Salin [Ctrl+C]', () => copySel()); chip('Duplikat [Ctrl+D]', duplicateSel); if (clip) chip('Tempel [Ctrl+V]', pasteHere); }
 
 // ---------- mouse / sentuh ----------
 const wpt = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left - r.width / 2) / view.s + view.cx, (e.clientY - r.top - r.height / 2) / view.s + view.cz]; };
@@ -370,6 +421,9 @@ export function planKey(e) {
     else if (!hist.length || confirm('Tutup tanpa menyimpan perubahan denah?')) toggleModal(el);
   } else if (e.code === 'KeyR') rotateAction();
   else if (e.code === 'KeyZ' && (e.ctrlKey || e.metaKey)) undo();
+  else if (e.code === 'KeyC' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); copySel(); }
+  else if (e.code === 'KeyV' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); pasteHere(); }
+  else if (e.code === 'KeyD' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); duplicateSel(); }
   else if (e.code === 'Enter') closePoly();
   else if (e.code === 'Delete' || e.code === 'Backspace') delSel();
   else if (e.code === 'Space') { e.preventDefault(); toggleLight(); }

@@ -1,7 +1,10 @@
 import { state, saveChar } from './state.js';
 import { entries } from './gallery.js';
-import { HATS, TOPS, BOTTOMS, BODIES, FACES } from './avatar.js';
+import { HATS, TOPS, BOTTOMS, BODIES, FACES, HAT_ORN, TOP_ORN, HAT_DEF, HAT_ORN_DEF, TOP_ORN_DEF } from './avatar.js';
+import { DEFAULT_LOOK } from './config.js';
 import { openEditor } from './editor.js';
+import { placeFrameFromView, removeFrameAimed } from './world.js';
+import { takeShot } from './download.js';
 import { toggleCursor } from './cursor.js';
 import { toast } from './toast.js';
 import { toggleModal } from './modal.js';
@@ -63,24 +66,42 @@ export function showStart() {      // dipanggil saat kembali ke menu awal
 
 export function initUI({ onLook, onStart, onMenu }) {
   menuCb = onMenu;
-  [['hat', HATS], ['top', TOPS], ['bottom', BOTTOMS], ['body', BODIES], ['face', FACES]].forEach(([id, list]) => list.forEach(h => $(id).add(new Option(h.name, h.id))));
+  [['hat', HATS], ['top', TOPS], ['bottom', BOTTOMS], ['body', BODIES], ['face', FACES], ['hornT', HAT_ORN], ['tornT', TOP_ORN]].forEach(([id, list]) => list.forEach(h => $(id).add(new Option(h.name, h.id))));
   try { $('room').value = localStorage.getItem('museum-room') || ''; mode = localStorage.getItem('museum-mode') || 'online'; } catch (e) {}
-  $('nm').value = state.name; $('c1').value = state.look.skin; $('c2').value = state.look.shirt;
-  $('c3').value = state.look.pants; $('c4').value = state.look.hatc;
-  ['hat', 'top', 'bottom', 'body', 'face'].forEach(id => { $(id).value = state.look[id]; });
+  const SEL = ['hat', 'top', 'bottom', 'body', 'face', 'hornT', 'tornT'], COL = { c1: 'skin', c2: 'shirt', c3: 'pants' };
+  // warna topi (c4) dan hiasan (c5): kalau belum diubah ikut warna bawaan model yang dipilih (data-set kosong)
+  const defHat = () => HAT_DEF[+$('hat').value] || HAT_DEF[1];
+  const defOrn = () => +$('hornT').value ? HAT_ORN_DEF[+$('hornT').value] : TOP_ORN_DEF[+$('tornT').value] || '#ffd23f';
+  const syncAuto = () => { if (!$('c4').dataset.set) $('c4').value = defHat(); if (!$('c5').dataset.set) $('c5').value = defOrn(); };
+  const fill = look => {
+    $('c1').value = look.skin; $('c2').value = look.shirt; $('c3').value = look.pants;
+    $('c4').dataset.set = look.hatc ? '1' : ''; $('c5').dataset.set = look.ornc ? '1' : '';
+    SEL.forEach(id => { $(id).value = look[id] || 0; }); if (look.hatc) $('c4').value = look.hatc; if (look.ornc) $('c5').value = look.ornc; syncAuto();
+  };
+  fill(state.look); $('nm').value = state.name;
   const read = () => {
-    state.look = { skin: $('c1').value, shirt: $('c2').value, pants: $('c3').value, hatc: $('c4').value, hat: +$('hat').value, top: +$('top').value, bottom: +$('bottom').value, body: +$('body').value, face: +$('face').value };
+    syncAuto();
+    state.look = { skin: $('c1').value, shirt: $('c2').value, pants: $('c3').value, hatc: $('c4').dataset.set ? $('c4').value : '', ornc: $('c5').dataset.set ? $('c5').value : '' };
+    SEL.forEach(id => { state.look[id] = +$(id).value; });
     state.name = ($('nm').value.trim() || 'Pengunjung').slice(0, 14);
     onLook();
   };
-  ['c1', 'c2', 'c3', 'c4', 'hat', 'top', 'bottom', 'body', 'face'].forEach(id => $(id).addEventListener('input', read));
-  $('charbtn').onclick = () => document.body.classList.add('charopen');
-  $('charclose').onclick = () => document.body.classList.remove('charopen');
+  ['c1', 'c2', 'c3', 'c4', 'c5'].forEach(id => $(id).addEventListener('input', () => { if (id === 'c4' || id === 'c5') $(id).dataset.set = '1'; read(); }));
+  [...SEL, 'nm'].forEach(id => $(id).addEventListener('input', read));
+  document.querySelectorAll('.rs').forEach(b => b.onclick = () => {          // kembalikan satu warna ke bawaan
+    const id = b.dataset.r;
+    if (id === 'c4' || id === 'c5') $(id).dataset.set = ''; else $(id).value = DEFAULT_LOOK[COL[id]];
+    read();
+  });
+  $('resetlook').onclick = () => { fill(DEFAULT_LOOK); read(); };
+  const edit = on => document.body.classList.toggle('charopen', on);
+  $('charbtn').onclick = () => edit(true); $('charfab').onclick = () => edit(true); $('charclose').onclick = () => edit(false);
   $('randlook').onclick = () => {                                          // acak penampilan
     const pick = n => Math.floor(Math.random() * n), col = () => '#' + [0, 0, 0].map(() => (40 + pick(190)).toString(16).padStart(2, '0')).join('');
     const skins = ['#f1c9a5', '#e0ac84', '#c68642', '#8d5524', '#f5d7c3', '#6b4423'];
-    $('c1').value = skins[pick(skins.length)]; $('c2').value = col(); $('c3').value = col(); $('c4').value = col();
-    $('hat').value = pick(HATS.length); $('top').value = pick(TOPS.length); $('bottom').value = pick(BOTTOMS.length); $('body').value = pick(BODIES.length); $('face').value = pick(FACES.length);
+    $('c1').value = skins[pick(skins.length)]; $('c2').value = col(); $('c3').value = col();
+    $('c4').value = col(); $('c4').dataset.set = '1'; $('c5').value = col(); $('c5').dataset.set = '1';
+    SEL.forEach(id => { $(id).value = pick($(id).options.length); });
     read();
   };
 
@@ -109,6 +130,10 @@ export function initUI({ onLook, onStart, onMenu }) {
   $('help').onclick = toggleHelp;
   $('plnbtn').onclick = e => { openPlan(); e.currentTarget.blur(); };
   initFullscreen();
+  $('addfrbtn').onclick = e => { placeFrameFromView(false); e.currentTarget.blur(); };
+  $('addfrvbtn').onclick = e => { placeFrameFromView(true); e.currentTarget.blur(); };
+  $('delfrbtn').onclick = e => { removeFrameAimed(); e.currentTarget.blur(); };
+  $('shotbtn').onclick = e => { takeShot(); e.currentTarget.blur(); };
   $('chatbtn').onclick = e => { toggleHistory(); e.currentTarget.blur(); };
   $('chatq').onclick = e => { openChat(); e.currentTarget.blur(); };
   $('barbtn').onclick = e => { const b = $('bar'), o = !b.classList.contains('open'); b.classList.toggle('open', o); e.currentTarget.setAttribute('aria-expanded', o); e.currentTarget.blur(); };
@@ -117,8 +142,8 @@ export function initUI({ onLook, onStart, onMenu }) {
 
 export const goMenu = () => menuCb();
 export function toggleCam() {
-  state.third = !state.third;
-  $('cambtn').textContent = 'Kamera: ' + (state.third ? 'orang ketiga' : 'orang pertama') + ' [V]';
+  state.cam = (state.cam + 1) % 3; state.third = state.cam > 0;
+  $('cambtn').textContent = 'Kamera: ' + ['orang pertama', 'orang ketiga', 'dari depan'][state.cam] + ' [V]';
 }
 export const toggleHelp = () => toggleModal($('help'));
 

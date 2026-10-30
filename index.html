@@ -23,7 +23,7 @@
   <section>
     <h2>Karakter</h2>
     <label>Nama<input id="nm" maxlength="14" autocomplete="off"></label>
-    <button id="charbtn" class="chip" type="button">Edit penampilan karakter</button>
+    <button id="charbtn" class="chip" type="button">Edit karakter</button>
   </section>
 
   <section>
@@ -43,20 +43,31 @@
   <button id="go">Masuk galeri</button>
   <footer class="s">Di dalam galeri: H bantuan, Q kembali ke menu, Ctrl+S simpan. <a href="?cek">Cek koneksi Supabase</a></footer>
 </div>
+<button id="charfab" class="chip" type="button">Edit karakter</button>
 <aside id="charpanel" aria-label="Edit karakter">
-  <div class="cphead"><b>Edit karakter</b><button id="charclose" class="chip" type="button">Selesai</button></div>
-  <div class="cpgrid">
-    <label>Kulit<input type="color" id="c1"></label>
-    <label>Warna baju<input type="color" id="c2"></label>
-    <label>Warna celana<input type="color" id="c3"></label>
-    <label>Warna topi<input type="color" id="c4"></label>
-    <label class="w2">Model topi<select id="hat"></select></label>
-    <label class="w2">Wajah<select id="face"></select></label>
-    <label class="w2">Model baju<select id="top"></select></label>
-    <label class="w2">Model celana<select id="bottom"></select></label>
-    <label class="w3">Bentuk tubuh<select id="body"></select></label>
-    <button id="randlook" class="chip" type="button">Acak</button>
+  <div class="cphead"><b>Edit karakter</b><button id="charclose" class="chip primary" type="button">Selesai</button></div>
+  <h3>Warna</h3>
+  <div class="cp5">
+    <label><span class="cl">Kulit<button type="button" class="rs" data-r="c1" title="Kembalikan ke warna bawaan">&#8634;</button></span><input type="color" id="c1"></label>
+    <label><span class="cl">Baju<button type="button" class="rs" data-r="c2" title="Kembalikan ke warna bawaan">&#8634;</button></span><input type="color" id="c2"></label>
+    <label><span class="cl">Celana<button type="button" class="rs" data-r="c3" title="Kembalikan ke warna bawaan">&#8634;</button></span><input type="color" id="c3"></label>
+    <label><span class="cl">Topi<button type="button" class="rs" data-r="c4" title="Kembalikan ke warna bawaan">&#8634;</button></span><input type="color" id="c4"></label>
+    <label><span class="cl">Hiasan<button type="button" class="rs" data-r="c5" title="Kembalikan ke warna bawaan">&#8634;</button></span><input type="color" id="c5"></label>
   </div>
+  <h3>Model</h3>
+  <div class="cp2">
+    <label>Topi<select id="hat"></select></label>
+    <label>Wajah<select id="face"></select></label>
+    <label>Baju<select id="top"></select></label>
+    <label>Celana<select id="bottom"></select></label>
+    <label class="full">Bentuk tubuh<select id="body"></select></label>
+  </div>
+  <h3>Hiasan</h3>
+  <div class="cp2">
+    <label>Hiasan topi<select id="hornT"></select></label>
+    <label>Hiasan baju<select id="tornT"></select></label>
+  </div>
+  <div class="cpfoot"><button id="randlook" class="chip" type="button">Acak</button><button id="resetlook" class="chip" type="button">Setel ulang semua</button></div>
 </aside>
 </div>
 
@@ -71,6 +82,10 @@
     <button id="curbtn">Kursor [Tab]</button>
     <button id="helpbtn">Bantuan [H]</button>
     <button id="plnbtn">Denah [L]</button>
+    <button id="addfrbtn" title="Bidik dinding lalu pasang bingkai mendatar">+ Bingkai [G]</button>
+    <button id="addfrvbtn" title="Bidik dinding lalu pasang bingkai tegak">+ Bingkai tegak [Shift+G]</button>
+    <button id="delfrbtn" title="Bidik bingkai lalu hapus">Hapus bingkai [X]</button>
+    <button id="shotbtn">Foto layar [O]</button>
     <button id="accbtn" class="cloudonly">Masuk Google</button>
     <button id="membtn" class="cloudonly" style="display:none">Anggota [M]</button>
   </div>
@@ -89,9 +104,11 @@
     <input id="ttl" maxlength="40" aria-label="Judul foto">
     <span id="ro" class="s" style="display:none">Hanya lihat</span>
     <span id="edstat" class="s">Tersimpan ✓</span>
+    <button id="eddl" class="chip" aria-haspopup="true">Unduh</button>
     <button id="edsave" class="chip primary">Simpan <kbd>Ctrl+S</kbd></button>
     <button id="edclose" class="tool">Tutup <kbd>Esc</kbd></button>
   </div>
+  <div id="dlmenu" role="menu"></div>
   <div id="stage">
     <div id="wrap"><canvas id="edc"></canvas><div id="crop"></div></div>
     <div id="zoom"><button id="zin" aria-label="Perbesar">+</button><button id="zout" aria-label="Perkecil">&minus;</button><button id="zfit">Pas</button></div>
@@ -117,7 +134,10 @@
     <kbd>F</kbd><span>Layar penuh (di iPhone: Bagikan, lalu Tambah ke Layar Utama)</span>
     <kbd>Spasi</kbd><span>Loncat (di HP: tombol Loncat)</span>
     <kbd>T</kbd><span>Chat: ketik pesan lalu Enter. Muncul di atas kepalamu, ada riwayatnya. Esc untuk menutup (Enter juga bisa kalau tidak membidik foto)</span>
-    <kbd>V</kbd><span>Ganti kamera orang pertama / ketiga</span>
+    <kbd>V</kbd><span>Ganti kamera: orang pertama, orang ketiga (belakang), dari depan</span>
+    <kbd>G</kbd><span>Pasang bingkai di dinding yang dibidik (Shift+G: bingkai tegak). Hanya pemilik</span>
+    <kbd>X</kbd><span>Hapus bingkai yang dibidik. Hanya pemilik</span>
+    <kbd>O</kbd><span>Foto layar tampilan 3D (diunduh sebagai gambar)</span>
     <kbd>Tab</kbd><span>Tampilkan atau sembunyikan kursor</span>
     <kbd>E</kbd><span>Buka foto yang dibidik (atau klik)</span>
     <kbd>H</kbd><span>Buka atau tutup bantuan ini</span>

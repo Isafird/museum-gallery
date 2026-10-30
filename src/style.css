@@ -220,21 +220,39 @@ body.isfs #fsstart{display:none}
 #randlook{align-self:flex-start}
 .row{grid-template-columns:repeat(4,1fr)}
 
-/* panel edit karakter: terpisah dari kartu, di kanan bawah preview karakter */
-#charpanel{position:absolute;right:4vw;bottom:20px;width:min(470px,calc(100vw - 460px));min-width:340px;background:rgba(26,29,35,.94);border:1px solid #2c3038;border-radius:16px;padding:12px 14px 14px;box-shadow:0 12px 40px rgba(0,0,0,.45);backdrop-filter:blur(6px);display:flex;flex-direction:column;gap:10px;z-index:1}
-#charpanel .cphead{display:flex;align-items:center;justify-content:space-between;font-size:13px}
-#charpanel #charclose{display:none}
-.cpgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;align-items:end}
-.cpgrid label{font-size:12px;gap:3px;min-width:0}
-.cpgrid .w2{grid-column:span 2}.cpgrid .w3{grid-column:span 3}
-.cpgrid select{min-width:0;width:100%}
-.cpgrid input[type=color]{height:32px}
+/* edit karakter: tombol di bawah preview; saat dibuka, panel menggantikan kartu di kiri (karakter tetap terlihat) */
+#charfab{position:absolute;left:70%;bottom:7vh;transform:translateX(-50%);z-index:1;padding:11px 22px;font-size:15px;background:rgba(26,29,35,.94);border:1px solid #2c3038;backdrop-filter:blur(6px)}
+#charfab:hover{background:var(--ac);color:#10161d}
 #charbtn{display:none;align-self:flex-start}
+#charpanel{display:none;width:min(390px,100%);max-height:calc(100dvh - 24px);overflow:auto;background:rgba(26,29,35,.94);border:1px solid #2c3038;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.45);backdrop-filter:blur(6px);padding:18px 20px 16px;flex-direction:column;gap:10px}
+#charpanel .cphead{display:flex;align-items:center;justify-content:space-between;font-size:15px}
+#charpanel h3{margin:6px 0 0;font:600 11px/1 system-ui,sans-serif;letter-spacing:.09em;text-transform:uppercase;color:var(--mut)}
+#charpanel label{font-size:12px;gap:3px;min-width:0}
+#charpanel select{min-width:0;width:100%}
+.cp5{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.cp5 input[type=color]{height:34px;padding:2px}
+.cp2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cp2 .full{grid-column:1/-1}
+.cl{display:flex;align-items:center;justify-content:space-between;gap:2px}
+.rs{background:transparent;color:var(--mut);padding:0 3px;font-size:15px;line-height:1;min-height:0}
+.rs:hover{color:var(--ac)}
+.cpfoot{display:flex;gap:8px;margin-top:4px}
+body.charopen .card{display:none}
+body.charopen #charpanel{display:flex}
+body.charopen #charfab{display:none}
 @media(max-width:900px){
+  #charfab{display:none}
   #charbtn{display:flex}
-  #charpanel{display:none;position:fixed;left:8px;right:8px;bottom:8px;width:auto;min-width:0;z-index:7;max-height:70vh;overflow:auto}
-  body.charopen #charpanel{display:flex}
   body.charopen #start{background:none}
-  body.charopen .card{display:none}                 /* saat edit karakter di HP: kartu disembunyikan supaya karakternya terlihat */
-  #charpanel #charclose{display:flex}
+  #charpanel{max-height:58dvh}
 }
+.cl{white-space:nowrap;font-size:11px}.cp5{gap:6px}
+
+/* unduh di editor foto */
+#dlmenu{display:none;position:absolute;right:10px;top:58px;z-index:6;flex-direction:column;gap:6px;background:rgba(22,24,29,.97);border:1px solid #2c3038;padding:8px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#dlmenu.open{display:flex}
+#dlmenu .chip{justify-content:flex-start}
+/* menu atas makin panjang: boleh turun ke baris berikutnya */
+#bar{flex-wrap:wrap;justify-content:flex-end;max-width:calc(100vw - 20px)}
+#barlist{flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:900px),(pointer:coarse){#barlist{flex-wrap:nowrap}}

@@ -9,6 +9,8 @@ import { editorKey } from './editor.js';
 import { isLocked, lockCursor, toggleCursor } from './cursor.js';
 import { openChat, closeChat, isChatOpen } from './chat.js';
 import { toggleFullscreen } from './fullscreen.js';
+import { placeFrameFromView, removeFrameAimed } from './world.js';
+import { takeShot } from './download.js';
 
 export const keys = {};            // tombol yang sedang ditekan
 export const mv = { x: 0, y: 0 };  // joystick sentuh (-1..1)
@@ -46,6 +48,9 @@ addEventListener('keydown', e => {
   else if (e.code === 'KeyM') openMembers();
   else if (e.code === 'KeyL') openPlan();
   else if (e.code === 'KeyQ') goMenu();
+  else if (e.code === 'KeyG') placeFrameFromView(e.shiftKey);
+  else if (e.code === 'KeyX') removeFrameAimed();
+  else if (e.code === 'KeyO') takeShot();
 });
 addEventListener('keyup', e => {
   keys[e.code] = 0;

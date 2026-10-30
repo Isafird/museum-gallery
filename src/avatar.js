@@ -15,10 +15,17 @@ export const BODIES = [
   { id: 5, name: 'Tinggi', tw: .92, td: .9, aw: .9, lw: .92, hs: .95, h: 1.18 },
 ].map(b => ({ ...b }));
 export const FACES = ['Biasa', 'Senyum lebar', 'Kedip', 'Mata besar', 'Kacamata hitam', 'Kacamata bulat', 'Terkejut', 'Kumis', 'Pipi merona', 'Mata hati'].map((name, id) => ({ id, name }));
+export const HAT_ORN = ['Tanpa hiasan', 'Bunga', 'Pita', 'Bulu', 'Bintang', 'Telinga kucing', 'Tanduk', 'Antena'].map((name, id) => ({ id, name }));
+export const TOP_ORN = ['Tanpa hiasan', 'Lencana bintang', 'Hati', 'Dasi kupu-kupu', 'Dasi panjang', 'Syal', 'Kalung bunga', 'Tas punggung', 'Jubah'].map((name, id) => ({ id, name }));
+// Warna bawaan (dipakai kalau warna topi / hiasan tidak diubah)
+export const HAT_DEF = ['#c0392b', '#c0392b', '#1c1c22', '#e3c27a', '#e67e22', '#8a5a2b', '#6f8f5a', '#f2c744', '#ffffff', '#e84a8a'];
+export const HAT_ORN_DEF = ['#ffd23f', '#ff6b9d', '#e63946', '#f4f1e8', '#ffd23f', '#f2a7bd', '#ece3c8', '#44c0a0'];
+export const TOP_ORN_DEF = ['#ffd23f', '#ffd23f', '#e63946', '#e63946', '#2a5db0', '#c0392b', '#ff6b9d', '#3a7d44', '#6a4c93'];
 const HAT_TOP = [.32, .41, .69, .47, .56, .52, .47, .52, .72, .67];       // tinggi puncak topi dari dasar kepala
 
 const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: .8, ...o });
 const shade = (hex, k) => { const c = new THREE.Color(hex); c.multiplyScalar(k); return '#' + c.getHexString(); };
+const accent = hex => { const c = new THREE.Color(hex), hsl = {}; c.getHSL(hsl); return hsl.l < .3 ? '#' + c.offsetHSL(0, 0, .32).getHexString() : shade(hex, .62); };   // warna pita / aksen yang kontras dengan warna utama
 function part(w, h, d, c, x, y, z, pivotTop, extra) {
   const g = new THREE.BoxGeometry(w, h, d); if (pivotTop) g.translate(0, -h / 2, 0);
   const m = new THREE.Mesh(g, c && c.isMaterial ? c : mat(c, extra)); m.position.set(x, y, z); return m;
@@ -62,14 +69,63 @@ function addHat(H, id, c) {
   const cy = (rt, rb, h, col, x, y, z, seg = 18, o = {}) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat(col, o)); m.position.set(x, y, z); H.add(m); return m; };
   const ball = (r, col, x, y, z, sy = 1) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), mat(col)); m.position.set(x, y, z); m.scale.y = sy; H.add(m); return m; };
   if (id === 1) { H.add(part(.36, .1, .36, c, 0, .36, 0)); H.add(part(.36, .03, .16, shade(c, .85), 0, .33, -.24)); ball(.03, shade(c, .8), 0, .42, 0); }
-  else if (id === 2) { cy(.17, .17, .38, 0x1c1c22, 0, .5, 0, 18); cy(.26, .26, .03, 0x1c1c22, 0, .33, 0); cy(.175, .175, .07, c, 0, .38, 0); }
-  else if (id === 3) { cy(.44, .44, .02, 0xe3c27a, 0, .335, 0, 28); cy(.19, .2, .15, 0xedd08c, 0, .41, 0); cy(.205, .205, .05, c, 0, .36, 0); }
-  else if (id === 4) { cy(.185, .185, .17, c, 0, .385, 0); cy(.2, .2, .07, shade(c, .8), 0, .33, 0); ball(.055, '#ffffff', 0, .5, 0); }
-  else if (id === 5) { cy(.4, .4, .025, c, 0, .335, 0, 28); cy(.13, .18, .17, c, 0, .42, 0); cy(.185, .185, .04, shade(c, .5), 0, .36, 0); }
+  else if (id === 2) { cy(.17, .17, .38, c, 0, .5, 0, 18); cy(.26, .26, .03, c, 0, .33, 0); cy(.175, .175, .07, accent(c), 0, .38, 0); }
+  else if (id === 3) { cy(.44, .44, .02, c, 0, .335, 0, 28); cy(.19, .2, .15, shade(c, 1.08), 0, .41, 0); cy(.205, .205, .05, accent(c), 0, .36, 0); }
+  else if (id === 4) { cy(.185, .185, .17, c, 0, .385, 0); cy(.2, .2, .07, shade(c, .8), 0, .33, 0); ball(.055, accent(c), 0, .5, 0); }
+  else if (id === 5) { cy(.4, .4, .025, c, 0, .335, 0, 28); cy(.13, .18, .17, c, 0, .42, 0); cy(.185, .185, .04, accent(c), 0, .36, 0); }
   else if (id === 6) { cy(.16, .2, .16, c, 0, .39, 0); cy(.31, .31, .02, shade(c, .9), 0, .315, 0, 24); }
-  else if (id === 7) { const gold = { metalness: .5, roughness: .35 }; cy(.17, .17, .08, 0xf2c744, 0, .36, 0, 18, gold); for (let k = 0; k < 5; k++) { const a = k * 1.2566, m = new THREE.Mesh(new THREE.ConeGeometry(.04, .12, 4), mat(0xf2c744, gold)); m.position.set(Math.sin(a) * .15, .46, Math.cos(a) * .15); H.add(m); } ball(.025, '#d6203a', 0, .36, -.175); }
-  else if (id === 8) { cy(.16, .16, .1, '#ffffff', 0, .37, 0); ball(.2, '#ffffff', 0, .52, 0, .8); }
-  else if (id === 9) { const m = new THREE.Mesh(new THREE.ConeGeometry(.13, .34, 14), mat(c)); m.position.set(0, .49, 0); H.add(m); ball(.04, '#ffe066', 0, .67, 0); }
+  else if (id === 7) { const gold = { metalness: .5, roughness: .35 }; cy(.17, .17, .08, c, 0, .36, 0, 18, gold); for (let k = 0; k < 5; k++) { const a = k * 1.2566, m = new THREE.Mesh(new THREE.ConeGeometry(.04, .12, 4), mat(c, gold)); m.position.set(Math.sin(a) * .15, .46, Math.cos(a) * .15); H.add(m); } ball(.025, '#d6203a', 0, .36, -.175); }
+  else if (id === 8) { cy(.16, .16, .1, c, 0, .37, 0); ball(.2, c, 0, .52, 0, .8); }
+  else if (id === 9) { const m = new THREE.Mesh(new THREE.ConeGeometry(.13, .34, 14), mat(c)); m.position.set(0, .49, 0); H.add(m); ball(.04, accent(c), 0, .67, 0); }
+}
+
+// ---- hiasan (ornamen): bentuk kecil yang dipakai di topi dan baju ----
+function starGeo(R, r, depth) {
+  const s = new THREE.Shape(); for (let i = 0; i < 10; i++) { const a = Math.PI / 2 + i * Math.PI / 5, rad = i % 2 ? r : R, x = Math.cos(a) * rad, y = Math.sin(a) * rad; i ? s.lineTo(x, y) : s.moveTo(x, y); }
+  s.closePath(); const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: false }); g.rotateY(Math.PI); return g;      // permukaan menghadap -z (depan)
+}
+function heartGeo(S, depth) {
+  const s = new THREE.Shape(); s.moveTo(0, -.5); s.bezierCurveTo(-.6, -.1, -.45, .45, 0, .2); s.bezierCurveTo(.45, .45, .6, -.1, 0, -.5);
+  const g = new THREE.ExtrudeGeometry(s, { depth: depth / S, bevelEnabled: false }); g.scale(S, S, S); g.rotateY(Math.PI); return g;
+}
+function bowGroup(c, k = 1) {
+  const g = new THREE.Group(), m = mat(c);
+  [-1, 1].forEach(s => { const w = new THREE.Mesh(new THREE.ConeGeometry(.045 * k, .09 * k, 4), m); w.rotation.z = s * Math.PI / 2; w.position.x = s * .05 * k; g.add(w); });
+  const b = new THREE.Mesh(new THREE.SphereGeometry(.022 * k, 10, 8), mat(shade(c, .8))); g.add(b); return g;
+}
+function flowerGroup(c) {
+  const g = new THREE.Group(), m = mat(c);
+  for (let k = 0; k < 5; k++) { const a = k * 1.2566, p = new THREE.Mesh(new THREE.SphereGeometry(.028, 10, 8), m); p.position.set(Math.cos(a) * .04, Math.sin(a) * .04, 0); p.scale.z = .55; g.add(p); }
+  const ctr = new THREE.Mesh(new THREE.SphereGeometry(.022, 10, 8), mat('#ffd23f')); ctr.position.z = -.012; g.add(ctr); return g;
+}
+// Titik tempel hiasan di sisi depan-kiri topi: [x, y, z] untuk tiap model topi (0 = tanpa topi: di sisi kepala)
+const HAT_ATTACH = [[-.12, .33, -.1], [-.185, .37, -.06], [-.178, .45, -.04], [-.196, .42, -.06], [-.19, .39, -.05], [-.18, .42, -.04], [-.18, .39, -.05], [0, .37, -.178], [-.2, .49, -.09], [-.09, .41, -.05]];
+function addHatOrn(H, hat, orn, c) {
+  if (!orn) return; const top = HAT_TOP[hat], m = mat(c), put = (obj, [x, y, z], tilt = 0) => {   // taruh di titik tempel, menghadap keluar
+    const o = new THREE.Group(), inner = new THREE.Group(); inner.add(obj); inner.rotation.z = tilt; o.add(inner); o.position.set(x, y, z); o.rotation.y = Math.atan2(-x, -(z || -.001)); H.add(o); return o;
+  };
+  const at = HAT_ATTACH[hat] || HAT_ATTACH[0];
+  if (orn === 1) put(flowerGroup(c), at);
+  else if (orn === 2) put(bowGroup(c, 1), at);
+  else if (orn === 3) { const f = new THREE.Group(), v = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), m); v.scale.set(.026, .15, .018); v.position.y = .1; f.add(v); const q = new THREE.Mesh(new THREE.CylinderGeometry(.004, .004, .2, 5), mat('#5a4a3a')); q.position.y = .08; f.add(q); put(f, at, at[0] < 0 ? .5 : -.5); }
+  else if (orn === 4) { const s = new THREE.Mesh(starGeo(.05, .022, .016), mat(c, { metalness: .3, roughness: .4 })); put(s, at); }
+  else if (orn === 5) [-1, 1].forEach(s => { const e = new THREE.Mesh(new THREE.ConeGeometry(.055, .12, 4), m); e.position.set(s * .1, top + .05, 0); e.rotation.set(0, Math.PI / 4, -s * .15); H.add(e); const i = new THREE.Mesh(new THREE.ConeGeometry(.03, .08, 4), mat('#f6c4d0')); i.position.set(s * .1, top + .04, -.015); i.rotation.set(0, Math.PI / 4, -s * .15); H.add(i); });
+  else if (orn === 6) [-1, 1].forEach(s => { const h = new THREE.Mesh(new THREE.ConeGeometry(.03, .14, 8), m); h.position.set(s * .115, top + .05, -.02); h.rotation.z = -s * .45; H.add(h); });
+  else if (orn === 7) { const g = new THREE.Group(), st = new THREE.Mesh(new THREE.CylinderGeometry(.006, .006, .16, 6), mat('#444')); st.position.y = .08; g.add(st); const b = new THREE.Mesh(new THREE.SphereGeometry(.028, 10, 8), m); b.position.y = .17; g.add(b); g.position.set(.06, top, 0); g.rotation.z = -.2; H.add(g); }
+}
+function addTopOrn(B, orn, c, tw, td) {
+  if (!orn) return; const fz = -td / 2, m = mat(c);
+  if (orn === 1) { const s = new THREE.Mesh(starGeo(.06, .026, .014), mat(c, { metalness: .3, roughness: .4 })); s.position.set(-tw * .22, 1.33, fz - .002); B.add(s); }
+  else if (orn === 2) { const h = new THREE.Mesh(heartGeo(.16, .014), m); h.position.set(0, 1.17, fz - .002); B.add(h); }
+  else if (orn === 3) { const b = bowGroup(c, 1.2); b.position.set(0, 1.43, fz - .018); B.add(b); }
+  else if (orn === 4) { B.add(part(.055, .05, .03, shade(c, .85), 0, 1.42, fz - .012)); B.add(part(.07, .3, .016, c, 0, 1.25, fz - .006)); }
+  else if (orn === 5) {
+    const R = .2, f = Math.max((tw / 2 + .04) / R, (td / 2 + .05) / R); const t = new THREE.Mesh(new THREE.TorusGeometry(R, .05, 8, 20), m); t.rotation.x = Math.PI / 2; t.position.y = 1.45; t.scale.set((tw / 2 + .045) / R, (td / 2 + .055) / R, 1); B.add(t);
+    B.add(part(.11, .3, .045, c, tw * .2, 1.3, fz - .035));
+  }
+  else if (orn === 6) { const cols = [c, '#ffd23f', '#ff8fb1']; for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2, front = Math.max(0, -Math.cos(a)), s = new THREE.Mesh(new THREE.SphereGeometry(.03, 8, 6), mat(cols[i % 3])); s.position.set(Math.sin(a) * (tw / 2 + .035), 1.4 - .13 * front, Math.cos(a) * (td / 2 + .04)); B.add(s); } }
+  else if (orn === 7) { B.add(part(Math.min(.4, tw * .8), .42, .14, c, 0, 1.15, td / 2 + .07)); B.add(part(.045, .52, .02, shade(c, .7), -tw * .27, 1.2, fz - .008)); B.add(part(.045, .52, .02, shade(c, .7), tw * .27, 1.2, fz - .008)); }
+  else if (orn === 8) { const cape = part(tw + .1, .9, .025, c, 0, 0, 0, true); const g = new THREE.Group(); g.position.set(0, 1.44, td / 2 + .01); g.rotation.x = -.1; g.add(cape); B.add(g); const clasp = new THREE.Mesh(new THREE.SphereGeometry(.03, 10, 8), mat('#ffd23f', { metalness: .6, roughness: .3 })); clasp.position.set(0, 1.44, fz - .01); B.add(clasp); }
 }
 
 // Karakter dibuat dari kotak. Depan karakter menghadap -z.
@@ -82,7 +138,7 @@ export function makeAvatar(look) {
   const tw = .5 * bd.tw, td = .28 * bd.td;
 
   B.add(part(tw, .7, td, shirtM(), 0, 1.1, 0));                       // badan
-  if (top === 2) { B.add(part(tw * .8, .2, .12, shade(l.shirt, .92), 0, 1.4, td / 2 + .05)); B.add(part(tw * .5, .1, .06, shade(l.shirt, .8), 0, .95, -td / 2 - .02)); }     // tudung + kantong
+  if (top === 2) B.add(part(tw * .8, .2, .12, shade(l.shirt, .92), 0, 1.4, td / 2 + .05));     // tudung (di punggung)
   if (top === 3) { B.add(part(.12, .05, .06, '#f2f2f2', -.07, 1.46, -td / 2 - .005)); B.add(part(.12, .05, .06, '#f2f2f2', .07, 1.46, -td / 2 - .005)); B.add(part(.025, .62, .01, shade(l.shirt, .7), 0, 1.1, -td / 2 - .006)); }   // kerah + kancing
   if (top === 5) { B.add(part(tw + .02, .08, td + .02, shade(l.shirt, .75), 0, 1.44, 0)); B.add(part(.02, .66, .01, '#cfcfcf', 0, 1.1, -td / 2 - .006)); }                      // kerah + ritsleting
   if (top === 6) { B.add(part(.1, .05, .06, '#f2f2f2', -.06, 1.46, -td / 2 - .005)); B.add(part(.1, .05, .06, '#f2f2f2', .06, 1.46, -td / 2 - .005)); }
@@ -90,7 +146,8 @@ export function makeAvatar(look) {
   const H = new THREE.Group(); H.position.y = 1.45; H.scale.setScalar(bd.hs); B.add(H);       // kepala (skala dari lehernya)
   const faceM = mat(0xffffff, { map: faceTex(+l.face || 0, l.skin) }), skinM = () => mat(l.skin);
   const head = new THREE.Mesh(new THREE.BoxGeometry(.32, .32, .32), [skinM(), skinM(), skinM(), skinM(), skinM(), faceM]); head.position.y = .16; H.add(head);
-  addHat(H, hat, l.hatc);
+  const hatC = l.hatc || HAT_DEF[hat];
+  addHat(H, hat, hatC); addHatOrn(H, hat, +l.hornT || 0, l.ornc || HAT_ORN_DEF[+l.hornT || 0]);
 
   // lengan: pangkal di bahu, ayunan lewat rotation.x
   const arm = side => {
@@ -122,7 +179,8 @@ export function makeAvatar(look) {
   }
   else B.add(part(tw + .005, .06, td + .005, shade(l.pants, .8), 0, .78, 0));                                                                       // pinggang celana
 
-  root.userData.u = u; root.userData.top = (1.45 + HAT_TOP[hat] * bd.hs) * bd.h;
+  addTopOrn(B, +l.tornT || 0, l.ornc || TOP_ORN_DEF[+l.tornT || 0], tw, td);
+  root.userData.u = u; root.userData.top = (1.45 + (HAT_TOP[hat] + ([0, 0, 0, 0, .1, .1, .06, .2][+l.hornT || 0])) * bd.hs) * bd.h;
   return root;
 }
 // Bebaskan geometri dan bahan karakter yang dibuang (tekstur dibagi, jadi tidak ikut dibuang)

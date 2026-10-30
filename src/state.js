@@ -7,7 +7,8 @@ export const state = {
   yaw: 0, pitch: 0,
   active: false,         // sudah masuk galeri?
   viewing: false,        // sedang melihat foto besar?
-  third: false,          // kamera orang ketiga?
+  third: false,          // kamera orang ketiga (belakang atau depan)?
+  cam: 0,                // 0 orang pertama, 1 orang ketiga (dari belakang), 2 dari depan
   target: -1,            // indeks bingkai yang sedang dibidik
   access: { role: 'local', canEdit: true, canManage: true, visibility: 'public' }, // hak akses galeri
   layout: null,          // denah yang sedang dipakai
@@ -22,7 +23,10 @@ export const state = {
 
 try {
   const s = JSON.parse(localStorage.getItem('museum-char'));
-  if (s) { state.look = { ...DEFAULT_LOOK, ...s.look }; state.name = s.name; }
+  if (s) {
+    state.look = { ...DEFAULT_LOOK, ...s.look }; state.name = s.name;
+    if (state.look.hatc === '#c0392b') state.look.hatc = '';   // warna topi bawaan lama dianggap belum diubah
+  }
 } catch (e) {}
 
 export function saveChar() {
