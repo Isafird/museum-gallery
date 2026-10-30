@@ -146,17 +146,17 @@ body.playing #chat{display:flex}
 #chat.open .cl i{display:inline}
 body.chatopen #hint{display:none!important}
 
+/* tombol atas dilipat jadi satu tombol Menu (di semua ukuran layar) */
+#tl{max-width:calc(100vw - 112px)}
+#bar{flex-direction:column;flex-wrap:nowrap;align-items:flex-end;gap:6px;max-width:none}
+#barbtn{display:block}
+#barlist{display:none;flex-direction:column;align-items:stretch;gap:6px;min-width:200px;max-width:calc(100vw - 20px);background:rgba(22,24,29,.94);border:1px solid #2c3038;padding:8px;border-radius:12px;max-height:calc(100dvh - 90px);overflow:auto}
+#bar.open #barlist{display:flex}
+#barlist button{text-align:left;background:rgba(255,255,255,.08)}
+#barlist .cloudonly{display:none}
+body.cloud #barlist .cloudonly{display:block}
+#barlist #membtn[style*="none"]{display:none}
 @media(max-width:900px),(pointer:coarse){
-  /* tombol atas dilipat jadi satu tombol Menu */
-  #tl{max-width:calc(100vw - 112px)}
-  #bar{flex-direction:column;flex-wrap:nowrap;align-items:flex-end;gap:6px;max-width:none}
-  #barbtn{display:block}
-  #barlist{display:none;flex-direction:column;align-items:stretch;gap:6px;min-width:200px;max-width:calc(100vw - 20px);background:rgba(22,24,29,.94);border:1px solid #2c3038;padding:8px;border-radius:12px;max-height:calc(100dvh - 90px);overflow:auto}
-  #bar.open #barlist{display:flex}
-  #barlist button{text-align:left;background:rgba(255,255,255,.08)}
-  #barlist .cloudonly{display:none}
-  body.cloud #barlist .cloudonly{display:block}
-  #barlist #membtn[style*="none"]{display:none}
   #toast{top:30%;max-width:calc(100vw - 32px);text-align:center}
   #hint{top:calc(50% + 26px);bottom:auto;white-space:normal;text-align:center;max-width:calc(100vw - 190px)}
   #chat{width:min(300px,calc(100vw - 130px));bottom:calc(env(safe-area-inset-bottom,0px) + 20px)}
@@ -253,6 +253,3 @@ body.charopen #charfab{display:none}
 #dlmenu.open{display:flex}
 #dlmenu .chip{justify-content:flex-start}
 /* menu atas makin panjang: boleh turun ke baris berikutnya */
-#bar{flex-wrap:wrap;justify-content:flex-end;max-width:calc(100vw - 20px)}
-#barlist{flex-wrap:wrap;justify-content:flex-end}
-@media(max-width:900px),(pointer:coarse){#barlist{flex-wrap:nowrap}}
