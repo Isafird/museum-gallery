@@ -17,7 +17,7 @@ import { flushSaves, render } from './photos.js';
 import { lockCursor } from './cursor.js';
 import { updateVideos, pauseVideos } from './videos.js';
 import { initOnline, startOnline, stopOnline } from './online.js';
-import { applyLayout, loadLocal } from './world.js';
+import { applyLayout, loadLocal, updateFrameDrag, isDraggingFrame } from './world.js';
 import { defaultLayout } from './layout.js';
 
 const { H } = ROOM;
@@ -50,7 +50,7 @@ async function backToMenu() {
   showStart(); toast('Kembali ke menu awal');
 }
 
-if (location.search.includes('debug')) window.__s = { makeAvatar, state, walkable, entries, setFrameStyle, render, renderer, scene, camera, applyLayout };   // hook untuk pengujian otomatis (tambahkan ?debug ke alamat)
+if (location.search.includes('debug')) window.__s = { makeAvatar, state, walkable, entries, setFrameStyle, render, renderer, scene, camera, applyLayout, isDraggingFrame };   // hook untuk pengujian otomatis (tambahkan ?debug ke alamat)
 if (new URLSearchParams(location.search).has('cek')) import('./diagnose.js').then(m => m.run());   // halaman diagnosis Supabase
 const ray = new THREE.Raycaster(), clock = new THREE.Clock();
 
@@ -121,7 +121,7 @@ function loop() {
   const amt = state.active && !state.viewing ? move(dt) : 0;
   if (state.active) jumpStep(dt);
   me.position.set(P.x, P.y, P.z); animateAvatar(me, P.y > 0 ? .25 : amt, t); tickBubble(me);
-  placeCamera(t); updateOthers(dt, t); updateLamps(dt, P.x, P.z); updateVideos(camera); autoQuality(performance.now());
+  placeCamera(t); updateOthers(dt, t); updateLamps(dt, P.x, P.z); updateFrameDrag(); updateVideos(camera); autoQuality(performance.now());
 
   state.target = -1;
   if (state.active && !state.viewing && state.cam !== 2) {

@@ -9,7 +9,7 @@ import { editorKey } from './editor.js';
 import { isLocked, lockCursor, toggleCursor } from './cursor.js';
 import { openChat, closeChat, isChatOpen } from './chat.js';
 import { toggleFullscreen } from './fullscreen.js';
-import { placeFrameFromView, removeFrameAimed } from './world.js';
+import { placeFrameFromView, removeFrameAimed, beginFrameDrag, endFrameDrag, isDraggingFrame } from './world.js';
 import { takeShot } from './download.js';
 
 export const keys = {};            // tombol yang sedang ditekan
@@ -66,13 +66,20 @@ if (jb) {
 
 // ---- Mouse: kursor terkunci, atau geser sambil klik kalau kursor tampil ----
 let down = null;
-canvas.addEventListener('mousedown', () => { down = { moved: 0 }; });
+const HOLD_MS = 450;     // tahan selama ini pada bingkai = mulai menggeser bingkai (pemilik)
+const holdTimer = (d) => setTimeout(() => {
+  if (down !== d || d.moved > 6 || !state.active || state.viewing || state.cam === 2) return;
+  beginFrameDrag(state.target >= 0 ? state.target : d.id);        // d.id: bingkai yang dibidik saat ditekan (toleransi bila bidikan sempat goyang)
+}, HOLD_MS);
+canvas.addEventListener('mousedown', e => { const d = down = { moved: 0, id: state.target }; if (e.button === 0 && d.id >= 0 && state.access.canManage) d.t = holdTimer(d); });
 addEventListener('mousemove', e => {
   if (!state.active || state.viewing) return;
   if (isLocked()) turn(e.movementX, e.movementY);
   else if (down && e.buttons) { turn(e.movementX, e.movementY); down.moved += Math.abs(e.movementX) + Math.abs(e.movementY); }
 });
 addEventListener('mouseup', () => {
+  if (down) clearTimeout(down.t);
+  if (isDraggingFrame()) { endFrameDrag(); down = null; return; }            // lepas = taruh bingkai di tempat baru
   if (down && state.active && !state.viewing && (isLocked() || down.moved < 4)) {
     if (state.target >= 0) interact();
     else if (!isLocked() && !state.cursorFree) lockCursor();     // klik di ruang kosong: kunci kursor lagi
@@ -84,7 +91,8 @@ addEventListener('mouseup', () => {
 const touches = {};
 canvas.addEventListener('touchstart', e => {
   for (const t of e.changedTouches)
-    touches[t.identifier] = { x: t.clientX, y: t.clientY, ox: t.clientX, oy: t.clientY, side: t.clientX < innerWidth / 2 ? 'move' : 'look', moved: 0 };
+    { const o = touches[t.identifier] = { x: t.clientX, y: t.clientY, ox: t.clientX, oy: t.clientY, side: t.clientX < innerWidth / 2 ? 'move' : 'look', moved: 0, drag: false };
+      if (o.side === 'look' && state.access.canManage) o.t = setTimeout(() => { if (touches[t.identifier] === o && o.moved < 12 && state.target >= 0 && state.cam !== 2) o.drag = beginFrameDrag(state.target); }, 550); }
 }, { passive: true });
 canvas.addEventListener('touchmove', e => {
   for (const t of e.changedTouches) {
@@ -97,7 +105,9 @@ canvas.addEventListener('touchmove', e => {
 canvas.addEventListener('touchend', e => {
   for (const t of e.changedTouches) {
     const o = touches[t.identifier];
-    if (o && o.moved < 8 && state.active && !state.viewing) interact();
+    if (o) clearTimeout(o.t);
+    if (o && o.drag) endFrameDrag();
+    else if (o && o.moved < 8 && state.active && !state.viewing) interact();
     if (o && o.side === 'move') { mv.x = 0; mv.y = 0; }
     delete touches[t.identifier];
   }

@@ -77,6 +77,7 @@ Tekan **L** (atau tombol "Denah") untuk membuka editor denah. Pada galeri online
 - **Dinding:** seret untuk membuat dinding pembatas di dalam ruangan.
 - **Pintu:** arahkan ke dinding lalu klik. Pintu selebar 2,4 m membuka dinding dan menyambung dua ruangan yang hanya bersentuhan (misalnya lingkaran yang hanya menempel di ujung dinding). Pintu juga bisa dipasang di dinding pembatas.
 - **Bingkai:** arahkan ke dinding lalu klik. Bingkai menempel otomatis dan menghadap ke dalam ruangan. Maksimal 100 bingkai.
+- **Geser bingkai dari dalam museum (pemilik):** tahan klik (atau sentuh lama di HP) pada bingkai yang dibidik, arahkan bidikan ke tempat lain di dinding, lalu lepas untuk menaruhnya. Jika tempat sudah terisi bingkai lain, bingkai kembali ke posisi semula.
 - **Lampu:** klik di lantai untuk menaruh lampu ruangan (maksimal 30; tampilan 3D memakai cahaya asli untuk maksimal 12 lampu terdekat, otomatis dikurangi kalau perangkat berat).
 - **Hapus:** klik bingkai, pintu, lampu, dinding, atau ruangan.
 
