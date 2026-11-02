@@ -9,6 +9,9 @@ import { editorKey } from './editor.js';
 import { isLocked, lockCursor, toggleCursor } from './cursor.js';
 import { openChat, closeChat, isChatOpen } from './chat.js';
 import { toggleFullscreen } from './fullscreen.js';
+import { doEmote, toggleEmotePanel } from './emote.js';
+import { toggleMusic, toggleSfx } from './audio.js';
+import { cycleTime, syncAudioBtns } from './ui.js';
 import { placeFrameFromView, removeFrameAimed, beginFrameDrag, endFrameDrag, isDraggingFrame } from './world.js';
 import { takeShot } from './download.js';
 
@@ -51,6 +54,11 @@ addEventListener('keydown', e => {
   else if (e.code === 'KeyG') placeFrameFromView(e.shiftKey);
   else if (e.code === 'KeyX') removeFrameAimed();
   else if (e.code === 'KeyO') takeShot();
+  else if (e.code === 'KeyB') toggleEmotePanel();
+  else if (/^(Digit|Numpad)[1-7]$/.test(e.code) && !e.ctrlKey && !e.metaKey && !e.altKey) doEmote(+e.code.slice(-1) - 1);
+  else if (e.code === 'KeyN') { toggleMusic(); syncAudioBtns(); }
+  else if (e.code === 'KeyK') { toggleSfx(); syncAudioBtns(); }
+  else if (e.code === 'KeyJ') cycleTime();
 });
 addEventListener('keyup', e => {
   keys[e.code] = 0;

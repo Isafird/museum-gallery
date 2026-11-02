@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { analyze, shapePoly, snapToWall, frameOnWall, floorArea, inFloor, pip, segD, doorPoly, MAX_FRAMES, MAX_LIGHTS, FRAME_W, DOOR_W } from './layout.js';
+import { analyze, shapePoly, snapToWall, frameOnWall, windowOnWall, MAX_WINDOWS, WIN_W, floorArea, inFloor, pip, segD, doorPoly, MAX_FRAMES, MAX_LIGHTS, FRAME_W, DOOR_W } from './layout.js';
 import { toggleModal } from './modal.js';
 import { toast } from './toast.js';
 import { commitLayout } from './world.js';
@@ -7,16 +7,17 @@ import { commitLayout } from './world.js';
 const $ = id => document.getElementById(id);
 const el = $('plan'), cv = $('plc'), g = cv.getContext('2d');
 const TOOLS = [['pan', 'Geser'], ['sel', 'Pilih'], ['rect', 'Kotak'], ['circle', 'Lingkaran'], ['semi', 'Setengah lingkaran'], ['hex', 'Segi enam'],
-  ['ell', 'Bentuk L'], ['tee', 'Bentuk T'], ['plus', 'Plus'], ['poly', 'Bebas'], ['wall', 'Dinding'], ['door', 'Pintu'], ['frame', 'Bingkai'], ['light', 'Lampu'], ['del', 'Hapus']];
+  ['ell', 'Bentuk L'], ['tee', 'Bentuk T'], ['plus', 'Plus'], ['poly', 'Bebas'], ['wall', 'Dinding'], ['door', 'Pintu'], ['window', 'Jendela'], ['frame', 'Bingkai'], ['light', 'Lampu'], ['del', 'Hapus']];
 const HINT = {
   pan: 'Seret untuk menggeser. Roda mouse untuk zoom.',
   sel: 'Klik objek untuk memilih. Ctrl+C salin, Ctrl+V tempel di kursor, Ctrl+D duplikat. Seret untuk memindahkan. Tarik kotak kecil di tepi ruangan untuk mengubah ukuran. R memutar, Delete menghapus.',
   poly: 'Klik titik-titik sudut. Klik titik awal atau tekan Enter untuk menutup.',
   wall: 'Seret untuk membuat dinding pembatas.', frame: 'Arahkan ke dinding lalu klik untuk menaruh bingkai.',
   door: 'Arahkan ke dinding lalu klik untuk membuat pintu. Pintu juga menyambung dua ruangan yang hanya bersentuhan.',
-  light: 'Klik di lantai untuk menaruh lampu ruangan.', del: 'Klik bingkai, pintu, lampu, dinding, atau ruangan untuk menghapus.',
+  window: 'Arahkan ke dinding luar lalu klik untuk membuat jendela (pemandangan luar museum). Maksimal 40. Pilih jendela lalu Delete untuk menghapus.',
+  light: 'Klik di lantai untuk menaruh lampu ruangan.', del: 'Klik bingkai, pintu, jendela, lampu, dinding, atau ruangan untuk menghapus.',
 };
-const KEYS = { frame: 'frames', door: 'doors', light: 'lights', div: 'dividers', shape: 'shapes' };
+const KEYS = { frame: 'frames', door: 'doors', window: 'windows', light: 'lights', div: 'dividers', shape: 'shapes' };
 let work, m, tool = 'rect', rot = 0, grid = 1, mir = 0, view = { cx: 0, cz: 0, s: 20 };
 let start = null, pts = [], hov = null, raw = null, hist = [], pan = null, W = 1, H = 1, dpr = 1, sel = null, drag = null;
 
@@ -31,7 +32,7 @@ function setTool(t) {
 // ---------- buka / tutup ----------
 export function openPlan() {
   if (!state.access.canManage) { toast('Hanya pemilik yang bisa mengubah denah'); return; }
-  work = JSON.parse(JSON.stringify(state.layout)); work.doors = work.doors || []; hist = []; rot = 0; sel = null; drag = null;
+  work = JSON.parse(JSON.stringify(state.layout)); work.doors = work.doors || []; work.windows = work.windows || []; hist = []; rot = 0; sel = null; drag = null;
   toggleModal(el); resize(); m = analyze(work); if (!work.lights) work.lights = m.lights.map(l => ({ ...l }));    // lampu otomatis jadi lampu yang bisa diatur
   reanalyze(); fit(); setTool('rect');
 }
@@ -85,6 +86,14 @@ function addDoor(p) {
     work.doors.push(d);
   });
 }
+function addWindow(p) {
+  flips().forEach(([fx, fz]) => {
+    const d = { x: fx * p.x, z: fz * p.z, a: mirA(p.a, fx, fz) };
+    if (work.windows.length >= MAX_WINDOWS) return;
+    if (!windowOnWall(d, m) || work.windows.some(o => Math.hypot(o.x - d.x, o.z - d.z) < WIN_W + .1 && Math.abs(Math.sin(o.a - d.a)) < .05)) return;
+    work.windows.push(d);
+  });
+}
 function addLight(p) {
   const seen = new Set(work.lights.map(l => l.x + ',' + l.z));
   flips().forEach(([fx, fz]) => {
@@ -99,6 +108,7 @@ function hit(p) {
   const [x, z] = p; let i;
   if ((i = work.frames.findIndex(f => Math.hypot(f.x - x, f.z - z) < 1.3)) >= 0) return { t: 'frame', i };
   if ((i = work.doors.findIndex(d => Math.hypot(d.x - x, d.z - z) < 1.3)) >= 0) return { t: 'door', i };
+  if ((i = work.windows.findIndex(d => Math.hypot(d.x - x, d.z - z) < 1.1)) >= 0) return { t: 'window', i };
   if ((i = work.lights.findIndex(l => Math.hypot(l.x - x, l.z - z) < .7)) >= 0) return { t: 'light', i };
   if ((i = work.dividers.findIndex(d => segD(x, z, d[0], d[1], d[2], d[3]) < .5)) >= 0) return { t: 'div', i };
   for (let k = work.shapes.length - 1; k >= 0; k--) if (pip(p, shapePoly(work.shapes[k]))) return { t: 'shape', i: k };
@@ -107,12 +117,13 @@ function hit(p) {
 const onEdge = (poly, x, z) => poly.some((a, i) => { const b = poly[(i + 1) % poly.length]; return segD(x, z, a[0], a[1], b[0], b[1]) < .06; });
 // Bingkai, pintu, dan lampu yang menempel pada objek ikut berpindah / berputar bersamanya
 function attachedTo(h) {
-  const o = { frames: [], doors: [], lights: [], divs: [] }; let on, inside = () => false;
+  const o = { frames: [], doors: [], windows: [], lights: [], divs: [] }; let on, inside = () => false;
   if (h.t === 'shape') { const poly = shapePoly(work.shapes[h.i]); on = (x, z) => onEdge(poly, x, z); inside = (x, z) => pip([x, z], poly); }
   else if (h.t === 'div') { const d = work.dividers[h.i]; on = (x, z) => segD(x, z, d[0], d[1], d[2], d[3]) < .06; }
   else return o;
   work.frames.forEach((f, i) => { if (on(f.x, f.z)) o.frames.push(i); });
   work.doors.forEach((d, i) => { if (on(d.x, d.z)) o.doors.push(i); });
+  work.windows.forEach((d, i) => { if (on(d.x, d.z)) o.windows.push(i); });
   work.lights.forEach((l, i) => { if (inside(l.x, l.z)) o.lights.push(i); });
   if (h.t === 'shape') work.dividers.forEach((d, i) => { if (on(d[0], d[1]) && on(d[2], d[3])) o.divs.push(i); });   // dinding di tepi / diameter ikut
   return o;
@@ -122,7 +133,8 @@ function applyMove(w, h, att, dx, dz) {
   if (h.t === 'shape') { const s = w.shapes[h.i]; if (s.k === 'poly') s.pts = s.pts.map(([x, z]) => [r3(x + dx), r3(z + dz)]); else { s.x = r3(s.x + dx); s.z = r3(s.z + dz); } }
   else if (h.t === 'div') { const d = w.dividers[h.i]; w.dividers[h.i] = [r3(d[0] + dx), r3(d[1] + dz), r3(d[2] + dx), r3(d[3] + dz)]; }
   else if (h.t === 'light') { const l = w.lights[h.i]; l.x = r3(l.x + dx); l.z = r3(l.z + dz); }
-  ['frames', 'doors', 'lights'].forEach(k => att[k].forEach(i => { const o = w[k][i]; o.x = r3(o.x + dx); o.z = r3(o.z + dz); }));
+  else if (h.t === 'window') { const l = w.windows[h.i]; l.x = r3(l.x + dx); l.z = r3(l.z + dz); }
+  ['frames', 'doors', 'windows', 'lights'].forEach(k => att[k].forEach(i => { const o = w[k][i]; o.x = r3(o.x + dx); o.z = r3(o.z + dz); }));
   att.divs.forEach(i => { const d = w.dividers[i]; w.dividers[i] = [r3(d[0] + dx), r3(d[1] + dz), r3(d[2] + dx), r3(d[3] + dz)]; });
 }
 function rotateSel() {
@@ -141,6 +153,7 @@ function rotateSel() {
     const rotA = a => +Math.atan2(-Math.cos(a), Math.sin(a)).toFixed(4);
     att.frames.forEach(i => { const f = work.frames[i]; [f.x, f.z] = T(f.x, f.z); f.a = rotA(f.a); });
     att.doors.forEach(i => { const d = work.doors[i]; [d.x, d.z] = T(d.x, d.z); d.a = rotA(d.a); });
+    att.windows.forEach(i => { const d = work.windows[i]; [d.x, d.z] = T(d.x, d.z); d.a = rotA(d.a); });
     att.lights.forEach(i => { const l = work.lights[i]; [l.x, l.z] = T(l.x, l.z); });
     att.divs.forEach(i => { const d = work.dividers[i], a = T(d[0], d[1]), b = T(d[2], d[3]); work.dividers[i] = [a[0], a[1], b[0], b[1]]; });
   });
@@ -179,6 +192,7 @@ function applyResize(w, d, nb) {
   const fx = x => r3(nb.x0 + (x - b.x0) * sx), fz = z => r3(nb.z0 + (z - b.z0) * sz), s = w.shapes[d.sel.i];
   if (s.k === 'poly') s.pts = s.pts.map(([x, z]) => [fx(x), fz(z)]);
   else { s.x = r3(nb.x0); s.z = r3(nb.z0); s.w = r3(nb.x1 - nb.x0); s.h = r3(nb.z1 - nb.z0); }
+  d.att.windows.forEach(i => { const o = w.windows[i], x = fx(o.x), z = fz(o.z), sp = snapToWall(mm0(w), x, z, .5, WIN_W / 2 + .1); if (sp && sp.d < .8) { o.x = sp.x; o.z = sp.z; o.a = sp.a; } else { o.x = x; o.z = z; } });
   d.att.lights.forEach(i => { const o = w.lights[i]; o.x = fx(o.x); o.z = fz(o.z); });
   d.att.divs.forEach(i => { const v = w.dividers[i]; w.dividers[i] = [fx(v[0]), fz(v[1]), fx(v[2]), fz(v[3])]; });
   const mm = analyze(w), base = analyze({ ...w, doors: [] });
@@ -187,6 +201,7 @@ function applyResize(w, d, nb) {
 }
 const CURSORS = { '-1,-1': 'nwse-resize', '1,1': 'nwse-resize', '1,-1': 'nesw-resize', '-1,1': 'nesw-resize', '0,-1': 'ns-resize', '0,1': 'ns-resize', '-1,0': 'ew-resize', '1,0': 'ew-resize' };
 
+const mm0 = w => analyze(w);
 function polyBounds(p) { const xs = p.map(q => q[0]), zs = p.map(q => q[1]); return { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) }; }
 function delSel() { if (!sel) return; const h = sel; sel = null; commit(() => { work[KEYS[h.t]].splice(h.i, 1); }); }
 // ---------- salin / tempel (Ctrl+C, Ctrl+V, Ctrl+D) ----------
@@ -199,6 +214,7 @@ function originOf(h, o) {
   return [o.x, o.z];
 }
 function copySel(quiet) {
+  if (sel && sel.t === 'window') { if (!quiet) toast('Jendela tidak bisa disalin. Pakai alat Jendela untuk menambah'); return false; }
   if (!sel || !work[KEYS[sel.t]][sel.i]) { toast('Pilih objek dulu (alat Pilih), lalu salin'); return false; }
   const o = work[KEYS[sel.t]][sel.i], att = attachedTo(sel);
   clip = { t: sel.t, obj: clone(o), origin: originOf(sel, o), att: { frames: att.frames.map(i => clone(work.frames[i])), doors: att.doors.map(i => clone(work.doors[i])), lights: att.lights.map(i => clone(work.lights[i])), divs: att.divs.map(i => clone(work.dividers[i])) } };
@@ -257,9 +273,10 @@ function renderProps() {
   } else if (sel.t === 'light') {
     label('Lampu ruangan'); chip(o.on ? 'Menyala (klik untuk mematikan)' : 'Mati (klik untuk menyalakan)', toggleLight, o.on); label('Spasi = nyala/mati');
   } else if (sel.t === 'door') label('Pintu (lebar 2,4 m)');
+  else if (sel.t === 'window') label('Jendela (lebar 2,2 m). Hanya di dinding luar. Seret ruangan untuk memindahkan bersama jendelanya.');
   else { label(sel.t === 'shape' ? 'Ruangan' : 'Dinding pembatas'); chip('Putar 90° [R]', rotateSel); label(sel.t === 'shape' ? 'Seret untuk memindahkan, tarik kotak kecil di tepinya untuk mengubah ukuran. Bingkai dan lampu yang menempel ikut.' : 'Seret untuk memindahkan. Bingkai dan lampu yang menempel ikut.'); }
   chip('Hapus [Del]', delSel);
-  addClip();
+  if (sel.t !== 'window') addClip();
 }
 function clipChips(box, chip) { chip('Salin [Ctrl+C]', () => copySel()); chip('Duplikat [Ctrl+D]', duplicateSel); if (clip) chip('Tempel [Ctrl+V]', pasteHere); }
 
@@ -298,9 +315,9 @@ cv.onpointerdown = e => {
     else if (!pts.length || q[0] !== pts[pts.length - 1][0] || q[1] !== pts[pts.length - 1][1]) pts.push(q);
     draw(); return;
   }
-  if (tool === 'frame' || tool === 'door') {
-    const sp = snapToWall(m, p[0], p[1], .5, tool === 'door' ? DOOR_W / 2 + .05 : undefined);
-    if (!sp) toast('Arahkan ke dinding'); else commit(() => (tool === 'door' ? addDoor(sp) : addFrame(sp)));
+  if (tool === 'frame' || tool === 'door' || tool === 'window') {
+    const sp = snapToWall(m, p[0], p[1], .5, tool === 'door' ? DOOR_W / 2 + .05 : tool === 'window' ? WIN_W / 2 + .1 : undefined);
+    if (!sp) toast('Arahkan ke dinding'); else if (tool === 'window' && !windowOnWall(sp, m)) toast('Jendela hanya di dinding luar'); else commit(() => (tool === 'door' ? addDoor(sp) : tool === 'window' ? addWindow(sp) : addFrame(sp)));
     return;
   }
   if (tool === 'light') { commit(() => addLight(q)); return; }
@@ -365,6 +382,11 @@ function drawNow() {
     g.strokeStyle = '#c9a56a'; g.lineWidth = .1; g.setLineDash([.22, .18]); line(d.x - tx * hw, d.z - tz * hw, d.x + tx * hw, d.z + tz * hw); g.setLineDash([]);
     g.lineWidth = .22; [-1, 1].forEach(k => line(d.x + tx * hw * k - nx * .4, d.z + tz * hw * k - nz * .4, d.x + tx * hw * k + nx * .4, d.z + tz * hw * k + nz * .4));
   });
+  work.windows.forEach(f => {                                                                  // jendela: garis biru muda di dinding
+    const nx = Math.sin(f.a), nz = Math.cos(f.a), tx = nz, tz = -nx, hw = WIN_W / 2, ok = windowOnWall(f, m);
+    g.strokeStyle = ok ? '#7fd1ff' : '#e5484d'; g.lineWidth = .16; line(f.x - tx * hw, f.z - tz * hw, f.x + tx * hw, f.z + tz * hw);
+    g.lineWidth = .07; line(f.x - nx * .2, f.z - nz * .2, f.x + nx * .2, f.z + nz * .2);
+  });
   work.lights.forEach(l => {                                                                   // lampu ruangan
     const ok = inFloor(m, l.x, l.z); g.beginPath(); g.arc(l.x, l.z, .38, 0, 7); g.fillStyle = l.on ? '#ffd66b' : '#2a2e36'; g.fill();
     g.lineWidth = .08; g.strokeStyle = !ok ? '#e5484d' : l.on ? '#fff3c4' : '#6b7080'; g.stroke();
@@ -376,9 +398,10 @@ function drawNow() {
     if (f.sp) { g.fillStyle = '#ffe066'; g.beginPath(); g.arc(f.x + nx * 1.05, f.z + nz * 1.05, .17, 0, 7); g.fill(); }
     g.fillStyle = '#fff'; g.font = '.7px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(f.id + 1, f.x + nx * .72 + (f.sp ? tx * .55 : 0), f.z + nz * .72 + (f.sp ? tz * .55 : 0));
   });
-  if ((tool === 'frame' || tool === 'door') && raw) {                                          // bayangan bingkai / pintu
-    const sp = snapToWall(m, raw[0], raw[1], .5, tool === 'door' ? DOOR_W / 2 + .05 : undefined);
-    if (sp) {
+  if ((tool === 'frame' || tool === 'door' || tool === 'window') && raw) {                     // bayangan bingkai / pintu / jendela
+    const sp = snapToWall(m, raw[0], raw[1], .5, tool === 'door' ? DOOR_W / 2 + .05 : tool === 'window' ? WIN_W / 2 + .1 : undefined);
+    if (sp && tool === 'window') { const tx = Math.cos(sp.a), tz = -Math.sin(sp.a); g.strokeStyle = windowOnWall(sp, m) ? 'rgba(127,209,255,.7)' : 'rgba(229,72,77,.7)'; g.lineWidth = .16; line(sp.x - tx * WIN_W / 2, sp.z - tz * WIN_W / 2, sp.x + tx * WIN_W / 2, sp.z + tz * WIN_W / 2); }
+    else if (sp) {
       const nx = Math.sin(sp.a), nz = Math.cos(sp.a);
       if (tool === 'door') { path(doorPoly(sp)); g.strokeStyle = 'rgba(201,165,106,.9)'; g.lineWidth = .1; g.stroke(); }
       else { g.strokeStyle = 'rgba(143,180,217,.5)'; g.lineWidth = .22; line(sp.x + nx * .3 - nz * FRAME_W / 2, sp.z + nz * .3 + nx * FRAME_W / 2, sp.x + nx * .3 + nz * FRAME_W / 2, sp.z + nz * .3 - nx * FRAME_W / 2); }
@@ -411,7 +434,7 @@ $('psave').onclick = async () => {
   const mND = analyze({ ...work, doors: [] });
   const keep = work.frames.filter(f => frameOnWall(f, mm)), dropped = work.frames.length - keep.length;
   if (dropped && !confirm(`${dropped} bingkai tidak menempel di dinding dan akan dihapus beserta fotonya. Lanjutkan?`)) return;
-  work.frames = keep; work.doors = work.doors.filter(d => frameOnWall(d, mND));                    // pintu yang dindingnya sudah hilang dibuang
+  work.frames = keep; work.doors = work.doors.filter(d => frameOnWall(d, mND)); work.windows = work.windows.filter(d => windowOnWall(d, mm));                    // pintu yang dindingnya sudah hilang dibuang
   if (await commitLayout(work)) toggleModal(el);
 };
 export function planKey(e) {

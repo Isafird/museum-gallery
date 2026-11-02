@@ -30,3 +30,22 @@ export function initFullscreen() {
   document.addEventListener('fullscreenchange', sync); document.addEventListener('webkitfullscreenchange', sync);
   sync();
 }
+
+// ---- Mendatar otomatis di HP ----
+// Android Chrome hanya mengizinkan kunci orientasi saat layar penuh (atau app terpasang di layar utama) dan setelah disentuh pengguna.
+// iPhone tidak bisa dikunci: di sana layar "Putar HP ke samping" (index.html) menuntun pengguna memutar sendiri.
+const isTouch = matchMedia('(pointer: coarse)').matches;
+export async function lockLandscape() {
+  try { if (screen.orientation && screen.orientation.lock) { await screen.orientation.lock('landscape'); return true; } } catch (e) {}
+  return false;
+}
+export async function immersive() {          // dipanggil dari sentuhan pengguna (tombol Masuk atau tombol di layar putar)
+  if (!isTouch) return;
+  if (!current() && !standalone() && reqFs) { try { const p = reqFs.call(de, { navigationUI: 'hide' }); if (p && p.then) await p.catch(() => {}); } catch (e) {} }
+  lockLandscape();
+}
+if (isTouch) {
+  lockLandscape();                             // berhasil kalau dibuka dari ikon layar utama
+  document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#go, #rotatebtn')) immersive(); }, true);
+  document.addEventListener('fullscreenchange', () => { if (current()) lockLandscape(); else if (screen.orientation && screen.orientation.unlock) try { screen.orientation.unlock(); } catch (e) {} });
+}

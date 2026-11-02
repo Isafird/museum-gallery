@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { scene } from './scene.js';
 import { ROOM, TITLES, DEFAULT_PHOTO, FRAME_STYLES } from './config.js';
-import { analyze, walkable as walk, inFloor, FRAME_OFF, WALL_T, DOOR_W, MAX_LIGHTS } from './layout.js';
+import { analyze, walkable as walk, inFloor, segD, FRAME_OFF, WALL_T, DOOR_W, MAX_LIGHTS, WIN_W } from './layout.js';
 import { buildFrame } from './frames3d.js';
 import { mergeBufferGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { buildOutdoor, lampScale } from './daytime.js';
 
 const { H } = ROOM;
 export const entries = [];   // entries[id]: { art, canvas, tex, frameMesh, title, data, bmp }  (id = nomor bingkai)
@@ -12,7 +13,7 @@ export const museum = { polys: [], walls: [], bounds: null, layout: null };   //
 export const defTitle = i => TITLES[i] || `Foto ${i + 1}`;
 export const walkable = (x, z, r) => walk(museum, x, z, r);
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x6b5a4a, .45));   // cahaya dasar; sisanya dari lampu ruangan di denah
+// cahaya dasar (hemisphere) ada di daytime.js dan mengikuti waktu; sisanya dari lampu ruangan di denah
 const root = new THREE.Group(); scene.add(root);          // seluruh isi museum, dibangun ulang saat denah berubah
 
 // ---- bahan ----
@@ -24,6 +25,7 @@ const fg = fc.getContext('2d');
 for (let k = 0; k < 8; k++) { fg.fillStyle = `hsl(25,${35 + Math.random() * 10}%,${24 + Math.random() * 8}%)`; fg.fillRect(0, k * 32, 256, 31); }
 const ft = new THREE.CanvasTexture(fc); ft.wrapS = ft.wrapT = THREE.RepeatWrapping;
 const floorM = new THREE.MeshLambertMaterial({ map: ft });
+const trimM = new THREE.MeshLambertMaterial({ color: 0x4a3524 });      // bingkai jendela
 
 // Lantai/langit-langit datar dari poligon (y = tinggi, up = menghadap atas)
 function flatGeo(poly, y, up) {
@@ -68,6 +70,19 @@ export function ensureEntry(id) {
     entries[id] = { art: makeArt(id), canvas, tex: new THREE.CanvasTexture(canvas), vert: false, frameMesh: null, title: defTitle(id), data: { ...DEFAULT_PHOTO }, bmp: null };
   }
   return entries[id];
+}
+
+// ---- jendela: posisinya dari denah (layout.windows). Satu dinding bisa punya beberapa jendela ----
+const WIN_Y0 = 1.0, WIN_Y1 = 3.4;
+function windowSpans(w, L, ux, uz, wins) {
+  const out = [];
+  (wins || []).forEach(f => {
+    if (segD(f.x, f.z, w.x1, w.z1, w.x2, w.z2) > .06 || Math.sin(f.a) * w.nx + Math.cos(f.a) * w.nz < .98) return;
+    const c = (f.x - w.x1) * ux + (f.z - w.z1) * uz, a = Math.max(.15, c - WIN_W / 2), b = Math.min(L - .15, c + WIN_W / 2);
+    if (b - a > .6) out.push([a, b]);
+  });
+  out.sort((p, q) => p[0] - q[0]);
+  return out.filter((s, i) => !i || s[0] >= out[i - 1][1] + .1);           // jendela yang bertumpuk: yang kedua dilewati
 }
 
 // ---- bangun ulang museum dari denah ----
@@ -159,7 +174,7 @@ export function updateLamps(dt, px, pz) {
       s.level = Math.max(0, s.level - fade);
       if (s.level === 0) { s.lamp = s.next; s.next = undefined; s.keep = true; const l = lamps[s.lamp]; s.light.position.set(l.x, H - .4, l.z); }
     } else s.level = Math.min(1, s.level + fade);
-    s.light.intensity = LIGHT_I * s.level;
+    s.light.intensity = LIGHT_I * lampScale() * s.level;
   });
 }
 
@@ -169,10 +184,28 @@ export function buildMuseum(layout) {
   const merged = (list, mat) => { if (list.length) root.add(new THREE.Mesh(list.length > 1 ? mergeBufferGeometries(list) : list[0], mat)); };
   merged(m.polys.map((poly, i) => flatGeo(poly, i * .001, true)), floorM);       // lantai + langit-langit: satu mesh per jenis
   merged(m.polys.map((poly, i) => flatGeo(poly, H - i * .001, false)), ceilM);
-  const solid = (w, h, y, x, z, ry) => { const g = new THREE.BoxGeometry(w, h, WALL_T); g.rotateY(ry); g.translate(x, y, z); return g; };
-  const boxes = m.walls.map(w => { const dx = w.x2 - w.x1, dz = w.z2 - w.z1; return solid(Math.hypot(dx, dz) + WALL_T, H, H / 2, (w.x1 + w.x2) / 2, (w.z1 + w.z2) / 2, -Math.atan2(dz, dx)); });
+  const solid = (w, h, y, x, z, ry, extra = 0) => { const g = new THREE.BoxGeometry(w, h, WALL_T + extra); g.rotateY(ry); g.translate(x, y, z); return g; };
+  const boxes = [], trims = [];
+  m.walls.forEach(w => {
+    const dx = w.x2 - w.x1, dz = w.z2 - w.z1, L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, ry = -Math.atan2(dz, dx);
+    const wins = w.div ? [] : windowSpans(w, L, ux, uz, layout.windows);
+    const at = s => [w.x1 + ux * s, w.z1 + uz * s];
+    const piece = (a, b, h, y, list) => { if (b - a < .02) return; if (list === boxes) { a -= .01; b += .01; } const [x, z] = at((a + b) / 2); list.push(solid(b - a, h, y, x, z, ry, list === trims ? .06 : 0)); };
+    let cur = -WALL_T / 2;
+    wins.forEach(([a, b]) => {                                       // dinding utuh, lalu bagian bawah dan atas jendela
+      piece(cur, a, H, H / 2, boxes); cur = b;
+      piece(a, b, WIN_Y0, WIN_Y0 / 2, boxes); piece(a, b, H - WIN_Y1, (H + WIN_Y1) / 2, boxes);
+      const mid = (a + b) / 2, t = .07;             // bingkai kayu + palang tengah
+      piece(a - t, a, WIN_Y1 - WIN_Y0 + t, (WIN_Y0 + WIN_Y1) / 2, trims); piece(b, b + t, WIN_Y1 - WIN_Y0 + t, (WIN_Y0 + WIN_Y1) / 2, trims);
+      piece(mid - t / 2, mid + t / 2, WIN_Y1 - WIN_Y0, (WIN_Y0 + WIN_Y1) / 2, trims);
+      piece(a, b, t, WIN_Y0 + t / 2, trims); piece(a, b, t, WIN_Y1 - t / 2, trims); piece(a, b, t, (WIN_Y0 + WIN_Y1) / 2, trims);
+    });
+    piece(cur, L + WALL_T / 2, H, H / 2, boxes);
+  });
+  buildOutdoor(m.bounds);
   (layout.doors || []).forEach(d => boxes.push(solid(DOOR_W, H - 2.5, 2.5 + (H - 2.5) / 2, d.x, d.z, d.a)));   // ambang atas pintu
   merged(boxes, wallM);                                            // semua dinding + ambang pintu jadi satu mesh
+  merged(trims, trimM);                                            // bingkai jendela
   const lamps = [];                                                // lampu ruangan (yang mati tetap terlihat sebagai fitting gelap)
   m.lights.forEach(L => {
     if (!inFloor(m, L.x, L.z)) return;

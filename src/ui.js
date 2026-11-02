@@ -12,6 +12,9 @@ import { openPlan } from './plan.js';
 import { openChat, toggleHistory } from './chat.js';
 import { initFullscreen } from './fullscreen.js';
 import * as cloud from './cloud.js';
+import { doEmote, buildEmotePanel, toggleEmotePanel } from './emote.js';
+import { toggleMusic, toggleSfx, audioState } from './audio.js';
+import { nextTimeMode, timeMode, hourNow, hourLabel, TIME_MODES } from './daytime.js';
 
 const $ = id => document.getElementById(id);
 const MODES = {
@@ -134,6 +137,12 @@ export function initUI({ onLook, onStart, onMenu }) {
   $('addfrvbtn').onclick = e => { placeFrameFromView(true); e.currentTarget.blur(); };
   $('delfrbtn').onclick = e => { removeFrameAimed(); e.currentTarget.blur(); };
   $('shotbtn').onclick = e => { takeShot(); e.currentTarget.blur(); };
+  buildEmotePanel(); syncAudioBtns(); syncTimeBtn();
+  $('emobtn').onclick = e => { toggleEmotePanel(); e.currentTarget.blur(); };
+  $('emotebtn').onclick = e => { toggleEmotePanel(); e.currentTarget.blur(); };
+  $('musbtn').onclick = e => { toggleMusic(); syncAudioBtns(); e.currentTarget.blur(); };
+  $('sfxbtn').onclick = e => { toggleSfx(); syncAudioBtns(); e.currentTarget.blur(); };
+  $('timebtn').onclick = e => { cycleTime(); e.currentTarget.blur(); };
   $('chatbtn').onclick = e => { toggleHistory(); e.currentTarget.blur(); };
   $('chatq').onclick = e => { openChat(); e.currentTarget.blur(); };
   $('barbtn').onclick = e => { const b = $('bar'), o = !b.classList.contains('open'); b.classList.toggle('open', o); e.currentTarget.setAttribute('aria-expanded', o); e.currentTarget.blur(); };
@@ -141,6 +150,15 @@ export function initUI({ onLook, onStart, onMenu }) {
 }
 
 export const goMenu = () => menuCb();
+export function syncAudioBtns() {
+  const a = audioState();
+  $('musbtn').textContent = 'Musik: ' + (a.music ? 'nyala' : 'mati') + ' [N]'; $('sfxbtn').textContent = 'Suara ruangan: ' + (a.sfx ? 'nyala' : 'mati') + ' [K]';
+}
+export function syncTimeBtn() { const m = TIME_MODES.find(x => x.id === timeMode()); $('timebtn').textContent = 'Waktu: ' + m.name.replace(' (ikut jam HP)', '') + ' [J]'; }
+export function cycleTime() {
+  const m = nextTimeMode(); syncTimeBtn();
+  toast(m.id === 'auto' ? 'Waktu mengikuti jam HP (' + hourLabel(hourNow()) + ')' : 'Waktu: ' + m.name, 2200);
+}
 export function toggleCam() {
   state.cam = (state.cam + 1) % 3; state.third = state.cam > 0;
   $('cambtn').textContent = 'Kamera: ' + ['orang pertama', 'orang ketiga', 'dari depan'][state.cam] + ' [V]';

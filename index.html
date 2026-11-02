@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#16181d">
+<meta name="theme-color" content="#17120e">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,6 +13,13 @@
 <title>Museum Foto 3D</title>
 </head>
 <body>
+<div id="rotate" role="alertdialog" aria-labelledby="rot-t">
+  <svg viewBox="0 0 120 120" aria-hidden="true"><g class="rphone"><rect x="40" y="14" width="40" height="76" rx="7"/><rect x="45" y="24" width="30" height="50" rx="2" class="rscr"/><circle cx="60" cy="82" r="3"/></g><path class="rarrow" d="M96 96a38 38 0 0 1-60 8M36 104l-2-12m2 12l12-3"/></svg>
+  <h2 id="rot-t">Putar HP ke samping</h2>
+  <p>Museum Foto dibuat untuk layar mendatar supaya lorong dan foto terlihat penuh.</p>
+  <button id="rotatebtn" type="button">Layar penuh dan kunci mendatar</button>
+  <small>Kalau layar tidak ikut berputar, matikan kunci rotasi di pengaturan cepat HP.</small>
+</div>
 <div id="start"><div class="card">
   <header>
     <h1>Museum Foto</h1>
@@ -46,6 +53,7 @@
 <button id="charfab" class="chip" type="button">Edit karakter</button>
 <aside id="charpanel" aria-label="Edit karakter">
   <div class="cphead"><b>Edit karakter</b><button id="charclose" class="chip primary" type="button">Selesai</button></div>
+  <div class="cpcols"><div class="cpcol">
   <h3>Warna</h3>
   <div class="cp5">
     <label><span class="cl">Kulit<button type="button" class="rs" data-r="c1" title="Kembalikan ke warna bawaan">&#8634;</button></span><input type="color" id="c1"></label>
@@ -54,6 +62,12 @@
     <label><span class="cl">Topi<button type="button" class="rs" data-r="c4" title="Kembalikan ke warna bawaan">&#8634;</button></span><input type="color" id="c4"></label>
     <label><span class="cl">Hiasan<button type="button" class="rs" data-r="c5" title="Kembalikan ke warna bawaan">&#8634;</button></span><input type="color" id="c5"></label>
   </div>
+  <h3>Hiasan</h3>
+  <div class="cp2">
+    <label>Hiasan topi<select id="hornT"></select></label>
+    <label>Hiasan baju<select id="tornT"></select></label>
+  </div>
+  </div><div class="cpcol">
   <h3>Model</h3>
   <div class="cp2">
     <label>Topi<select id="hat"></select></label>
@@ -62,12 +76,8 @@
     <label>Celana<select id="bottom"></select></label>
     <label class="full">Bentuk tubuh<select id="body"></select></label>
   </div>
-  <h3>Hiasan</h3>
-  <div class="cp2">
-    <label>Hiasan topi<select id="hornT"></select></label>
-    <label>Hiasan baju<select id="tornT"></select></label>
-  </div>
   <div class="cpfoot"><button id="randlook" class="chip" type="button">Acak</button><button id="resetlook" class="chip" type="button">Setel ulang semua</button></div>
+  </div></div>
 </aside>
 </div>
 
@@ -80,6 +90,10 @@
     <button id="chatbtn">Chat [T]</button>
     <button id="fsbtn" class="fsbtn" data-on="Layar penuh [F]" data-off="Keluar layar penuh [F]">Layar penuh [F]</button>
     <button id="curbtn">Kursor [Tab]</button>
+    <button id="emotebtn">Emote [B]</button>
+    <button id="timebtn">Waktu: Otomatis [J]</button>
+    <button id="musbtn">Musik: nyala [N]</button>
+    <button id="sfxbtn">Suara ruangan: nyala [K]</button>
     <button id="helpbtn">Bantuan [H]</button>
     <button id="plnbtn">Denah [L]</button>
     <button id="addfrbtn" title="Bidik dinding lalu pasang bingkai mendatar">+ Bingkai [G]</button>
@@ -97,7 +111,8 @@
   <div id="chlog"></div>
   <form id="chform" autocomplete="off"><input id="chin" placeholder="Ketik pesan lalu Enter" enterkeyhint="send" aria-label="Pesan chat"><button id="chsend" type="submit" class="chip primary">Kirim</button></form>
 </div>
-<div id="touch"><button id="chatq" type="button" aria-label="Chat">Chat</button><button id="jumpbtn" type="button" aria-label="Loncat">Loncat</button></div>
+<div id="emotes" role="menu" aria-label="Emote"></div>
+<div id="touch"><button id="emobtn" type="button" aria-label="Emote">&#128522;</button><button id="chatq" type="button" aria-label="Chat">Chat</button><button id="jumpbtn" type="button" aria-label="Loncat">Loncat</button></div>
 
 <div id="editor">
   <div id="edtop">
@@ -138,6 +153,10 @@
     <kbd>G</kbd><span>Pasang bingkai di dinding yang dibidik (Shift+G: bingkai tegak). Hanya pemilik</span>
     <kbd>X</kbd><span>Hapus bingkai yang dibidik. Hanya pemilik</span>
     <kbd>Tahan klik</kbd><span>Tahan klik (atau sentuh lama) pada bingkai lalu arahkan ke tempat lain di dinding untuk menggesernya. Lepas untuk menaruh. Hanya pemilik</span>
+    <kbd>1 - 7</kbd><span>Emote langsung: melambai, tepuk tangan, cinta, tertawa, kaget, jempol, menari. Terlihat oleh pemain lain (B membuka panelnya)</span>
+    <kbd>J</kbd><span>Ganti waktu: otomatis (ikut jam HP), pagi, siang, sore, malam. Langit di luar jendela ikut berubah</span>
+    <kbd>N</kbd><span>Musik latar nyala / mati (nadanya berbeda tiap room)</span>
+    <kbd>K</kbd><span>Suara ruangan nyala / mati (langkah kaki, gema, burung dan jangkrik di luar)</span>
     <kbd>O</kbd><span>Foto layar tampilan 3D (diunduh sebagai gambar)</span>
     <kbd>Tab</kbd><span>Tampilkan atau sembunyikan kursor</span>
     <kbd>E</kbd><span>Buka foto yang dibidik (atau klik)</span>
@@ -188,6 +207,9 @@
     <button id="madd" class="chip primary">Tambah</button>
   </div>
   <p class="s">Editor boleh mengganti foto, filter, frame, dan crop. Hanya lihat berguna untuk room privat. Anggota harus masuk dengan akun Google yang emailnya sama. Pemilik selalu bisa mengedit.</p>
+  <h2 style="margin-top:14px">Hapus room</h2>
+  <p class="s">Menghapus room beserta semua foto, video, denah, dan anggotanya dari database. Gunakan untuk room yang sudah tidak terpakai. Tidak bisa dibatalkan.</p>
+  <button id="mdelroom" class="chip danger">Hapus room ini</button>
   <button id="mclose" class="tool">Tutup <kbd>Esc</kbd></button>
 </div></div>
 

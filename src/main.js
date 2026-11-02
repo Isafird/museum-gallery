@@ -1,5 +1,8 @@
 import * as THREE from 'three';
+import '@fontsource-variable/fraunces';
+import '@fontsource-variable/instrument-sans';
 import './style.css';
+import './theme.css';
 import { renderer, scene, camera } from './scene.js';
 import { state } from './state.js';
 import { ROOM, SPEED } from './config.js';
@@ -19,18 +22,20 @@ import { updateVideos, pauseVideos } from './videos.js';
 import { initOnline, startOnline, stopOnline } from './online.js';
 import { applyLayout, loadLocal, updateFrameDrag, isDraggingFrame } from './world.js';
 import { defaultLayout } from './layout.js';
+import { updateDaytime, setTimeMode } from './daytime.js';
+import { startAudio, updateAudio, setMusicSeed } from './audio.js';
 
 const { H } = ROOM;
 const JUMP_V = 5.6, GRAV = 16;   // loncat setinggi ±1 m
 const { P } = state;
 let me = null;   // karakter milik sendiri
 
-function rebuildMe() { if (me) { scene.remove(me); disposeAvatar(me); } me = makeAvatar(state.look); scene.add(me); }
+function rebuildMe() { if (me) { scene.remove(me); disposeAvatar(me); } me = makeAvatar(state.look); scene.add(me); state.me = me; }
 applyLayout(defaultLayout());          // denah bawaan dulu, denah tersimpan dimuat sesudahnya
 rebuildMe();
 initUI({
   onLook: rebuildMe,
-  onStart: (code, online) => { state.active = true; camera.clearViewOffset(); lockCursor(); clearChat(); if (code) connect(code); if (online) startOnline(code); },
+  onStart: (code, online) => { startAudio(); setMusicSeed(code || 'lokal'); state.active = true; camera.clearViewOffset(); lockCursor(); clearChat(); if (code) connect(code); if (online) startOnline(code); },
   onMenu: backToMenu,
 });
 initOnline();
@@ -50,7 +55,7 @@ async function backToMenu() {
   showStart(); toast('Kembali ke menu awal');
 }
 
-if (location.search.includes('debug')) window.__s = { makeAvatar, state, walkable, entries, setFrameStyle, render, renderer, scene, camera, applyLayout, isDraggingFrame };   // hook untuk pengujian otomatis (tambahkan ?debug ke alamat)
+if (location.search.includes('debug')) window.__s = { makeAvatar, state, walkable, entries, setFrameStyle, render, renderer, scene, camera, applyLayout, isDraggingFrame, setTimeMode };   // hook untuk pengujian otomatis (tambahkan ?debug ke alamat)
 if (new URLSearchParams(location.search).has('cek')) import('./diagnose.js').then(m => m.run());   // halaman diagnosis Supabase
 const ray = new THREE.Raycaster(), clock = new THREE.Clock();
 
@@ -117,11 +122,12 @@ function autoQuality(now) {
 function loop() {
   requestAnimationFrame(loop);
   const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
-  if (state.active && state.viewing) { pauseVideos(); return; }      // editor denah / foto / bantuan menutupi layar: tidak perlu menggambar museum
+  if (state.active && state.viewing) { pauseVideos(); updateAudio(dt, true, 0, false, P.x, P.z); return; }      // editor denah / foto / bantuan menutupi layar: tidak perlu menggambar museum
   const amt = state.active && !state.viewing ? move(dt) : 0;
   if (state.active) jumpStep(dt);
+  updateAudio(dt, state.active, amt, P.y > 0, P.x, P.z);
   me.position.set(P.x, P.y, P.z); animateAvatar(me, P.y > 0 ? .25 : amt, t); tickBubble(me);
-  placeCamera(t); updateOthers(dt, t); updateLamps(dt, P.x, P.z); updateFrameDrag(); updateVideos(camera); autoQuality(performance.now());
+  placeCamera(t); updateOthers(dt, t); updateDaytime(dt); updateLamps(dt, P.x, P.z); updateFrameDrag(); updateVideos(camera); autoQuality(performance.now());
 
   state.target = -1;
   if (state.active && !state.viewing && state.cam !== 2) {

@@ -253,3 +253,6 @@ body.charopen #charfab{display:none}
 #dlmenu.open{display:flex}
 #dlmenu .chip{justify-content:flex-start}
 /* menu atas makin panjang: boleh turun ke baris berikutnya */
+
+.chip.danger{background:#7a1f1f;border-color:#b33;color:#fff}.chip.danger:hover{background:#9b2a2a}.chip.danger:disabled{opacity:.6}
+#mdelroom{margin:4px 8px 12px 0}

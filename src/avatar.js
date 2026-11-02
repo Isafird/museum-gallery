@@ -180,7 +180,7 @@ export function makeAvatar(look) {
   else B.add(part(tw + .005, .06, td + .005, shade(l.pants, .8), 0, .78, 0));                                                                       // pinggang celana
 
   addTopOrn(B, +l.tornT || 0, l.ornc || TOP_ORN_DEF[+l.tornT || 0], tw, td);
-  root.userData.u = u; root.userData.top = (1.45 + (HAT_TOP[hat] + ([0, 0, 0, 0, .1, .1, .06, .2][+l.hornT || 0])) * bd.hs) * bd.h;
+  u.B = B; root.userData.u = u; root.userData.top = (1.45 + (HAT_TOP[hat] + ([0, 0, 0, 0, .1, .1, .06, .2][+l.hornT || 0])) * bd.hs) * bd.h;
   return root;
 }
 // Bebaskan geometri dan bahan karakter yang dibuang (tekstur dibagi, jadi tidak ikut dibuang)
@@ -199,6 +199,49 @@ export function nameTag(name, top = 1.77) {
 export function animateAvatar(g, amt, t) {
   const u = g.userData.u, s = Math.sin(t * 8) * .7 * amt;
   u.aL.rotation.x = s; u.aR.rotation.x = -s; u.lL.rotation.x = -s; u.lR.rotation.x = s;
+  u.aL.rotation.z = u.aR.rotation.z = 0; u.B.position.y = 0; u.B.rotation.set(0, 0, 0);
+  if (g.userData.emote) tickEmote(g, amt);
+}
+
+// ---- Emote: gerakan badan + emoji yang melayang di atas kepala ----
+export const EMOTES = [
+  { ic: '\u{1F44B}', name: 'Melambai', s: 3 }, { ic: '\u{1F44F}', name: 'Tepuk tangan', s: 3 }, { ic: '\u2764\uFE0F', name: 'Cinta', s: 3 },
+  { ic: '\u{1F602}', name: 'Tertawa', s: 3 }, { ic: '\u{1F62E}', name: 'Kaget', s: 2.4 }, { ic: '\u{1F44D}', name: 'Jempol', s: 2.6 }, { ic: '\u{1F483}', name: 'Menari', s: 6 },
+];
+const emojiTex = {};
+function emojiSprite(ic) {
+  if (!emojiTex[ic]) {
+    const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
+    x.font = '96px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(ic, 64, 70);
+    emojiTex[ic] = new THREE.CanvasTexture(c);
+  }
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: emojiTex[ic], depthTest: false, transparent: true })); s.renderOrder = 11; return s;
+}
+function endEmote(g) { const e = g.userData.emote; if (!e) return; e.sprites.forEach(p => { g.remove(p.s); p.s.material.dispose(); }); g.userData.emote = null; }
+export function playEmote(g, id) {
+  const d = EMOTES[id]; if (!d || !g.userData.u) return; endEmote(g);
+  const n = id === 2 ? 3 : 1, top = (g.userData.top || 1.77) + .8, sprites = [];
+  for (let i = 0; i < n; i++) { const s = emojiSprite(d.ic); s.position.y = top; s.scale.setScalar(.01); g.add(s); sprites.push({ s, delay: i * .35, dx: (i - 1) * .28 }); }
+  g.userData.emote = { id, t0: performance.now(), dur: d.s * 1000, top, sprites };
+}
+function tickEmote(g, amt) {
+  const e = g.userData.emote, u = g.userData.u, el = (performance.now() - e.t0) / 1000;
+  if (el * 1000 > e.dur || (amt > .4 && el > .3)) { endEmote(g); return; }     // selesai, atau pemain mulai berjalan
+  const w = el * 1;
+  e.sprites.forEach(p => {                                                       // emoji: membesar, naik pelan, memudar di akhir
+    const k = Math.max(0, el - p.delay), life = Math.min(1, k / 2.2), sc = Math.min(1, k * 5) * .55;
+    p.s.position.set(p.dx + Math.sin(k * 3) * .06, e.top + life * .55, 0); p.s.scale.setScalar(sc); p.s.material.opacity = life > .7 ? Math.max(0, 1 - (life - .7) / .3) : 1;
+  });
+  const s = Math.sin, T = el;
+  switch (e.id) {
+    case 0: u.aR.rotation.x = 2.5; u.aR.rotation.z = s(T * 12) * .4; break;
+    case 1: { const c = Math.max(0, s(T * 14)); u.aR.rotation.x = u.aL.rotation.x = 1.35; u.aR.rotation.z = -.05 - c * .38; u.aL.rotation.z = .05 + c * .38; break; }
+    case 2: u.aR.rotation.x = u.aL.rotation.x = 2.5; u.aR.rotation.z = -.45; u.aL.rotation.z = .45; u.B.position.y = Math.abs(s(T * 5)) * .03; break;
+    case 3: u.aR.rotation.x = u.aL.rotation.x = .9; u.B.rotation.x = -.18 + s(T * 20) * .06; u.B.position.y = Math.abs(s(T * 16)) * .04; break;
+    case 4: { const hop = Math.max(0, s(Math.min(T, .4) * Math.PI / .4)); u.aR.rotation.z = 2.3; u.aL.rotation.z = -2.3; u.B.position.y = hop * .22; u.lL.rotation.x = u.lR.rotation.x = 0; break; }
+    case 5: u.aR.rotation.x = 1.75; u.B.position.y = Math.abs(s(T * 6)) * .02; break;
+    case 6: u.aR.rotation.z = 1.35 + s(T * 9) * 1.0; u.aL.rotation.z = -(1.35 - s(T * 9) * 1.0); u.B.position.y = Math.abs(s(T * 9)) * .09; u.B.rotation.y = s(T * 4.5) * .5; u.lL.rotation.x = s(T * 9) * .5; u.lR.rotation.x = -s(T * 9) * .5; break;
+  }
 }
 
 // Gelembung chat di atas kepala. Hilang sendiri setelah beberapa detik (lihat tickBubble).

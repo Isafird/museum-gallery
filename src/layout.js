@@ -7,7 +7,7 @@
 //   doors:    { x, z, a }             pintu di dinding (lebar DOOR_W); menyatukan ruang di kedua sisinya
 //   lights:   [{ x, z, on }]          lampu ruangan (kalau kosong dibuat otomatis)
 // Semua fungsi di sini murni (tanpa THREE) sehingga dipakai editor 2D dan tampilan 3D.
-export const MAX_FRAMES = 100, MAX_LIGHTS = 30, AUTO_LIGHTS = 12, WALL_T = .3, FRAME_OFF = .2, FRAME_W = 2.7, DOOR_W = 2.4, DOOR_D = 1.2;
+export const MAX_FRAMES = 100, MAX_LIGHTS = 30, AUTO_LIGHTS = 12, WALL_T = .3, FRAME_OFF = .2, FRAME_W = 2.7, DOOR_W = 2.4, DOOR_D = 1.2, MAX_WINDOWS = 40, WIN_W = 2.2;
 
 const circle = Array.from({ length: 40 }, (_, i) => { const t = i / 40 * 2 * Math.PI; return [.5 + .5 * Math.cos(t), .5 + .5 * Math.sin(t)]; });
 export const TEMPLATES = {
@@ -27,11 +27,12 @@ export function defaultLayout() {
   [-9, -3, 3, 9].forEach(x => frames.push({ id: id++, x, z: 9, a: Math.PI }));
   [-3, 3].forEach(x => frames.push({ id: id++, x, z: 0, a: 0 }));
   [-3, 3].forEach(x => frames.push({ id: id++, x, z: 0, a: Math.PI }));
-  return { v: 1, shapes: [{ k: 'rect', x: -15, z: -9, w: 30, h: 18, r: 0 }], dividers: [[-7, 0, 7, 0]], doors: [], frames };
+  const windows = [{ x: -15, z: 0, a: Math.PI / 2 }, { x: 15, z: 0, a: -Math.PI / 2 }, { x: 0, z: -9, a: 0 }, { x: 0, z: 9, a: Math.PI }];
+  return { v: 1, shapes: [{ k: 'rect', x: -15, z: -9, w: 30, h: 18, r: 0 }], dividers: [[-7, 0, 7, 0]], doors: [], windows, frames };
 }
 export function normalizeLayout(l) {
   if (!l || !Array.isArray(l.shapes) || !l.shapes.length) return defaultLayout();
-  const out = { v: 1, shapes: l.shapes.slice(0, 60), dividers: (l.dividers || []).slice(0, 80), doors: (l.doors || []).slice(0, 40), frames: (l.frames || []).slice(0, MAX_FRAMES) };
+  const out = { v: 1, shapes: l.shapes.slice(0, 60), dividers: (l.dividers || []).slice(0, 80), doors: (l.doors || []).slice(0, 40), windows: (l.windows || []).slice(0, MAX_WINDOWS), frames: (l.frames || []).slice(0, MAX_FRAMES) };
   if (Array.isArray(l.lights)) out.lights = l.lights.slice(0, MAX_LIGHTS);
   return out;
 }
@@ -211,6 +212,11 @@ export function snapToWall(m, px, pz, step = .5, margin0 = FRAME_W / 2 + .1) {
     if (!best || rank < best.rank) best = { x: +ax.toFixed(3), z: +az.toFixed(3), a: +Math.atan2(nx, nz).toFixed(4), d, rank };
   }
   return best && best.d < 2 ? best : null;
+}
+// Jendela hanya di dinding luar (bukan dinding pembatas), menghadap ke dalam ruangan
+export function windowOnWall(f, m) {
+  const nx = Math.sin(f.a), nz = Math.cos(f.a);
+  return m.walls.some(w => !w.div && segD(f.x, f.z, w.x1, w.z1, w.x2, w.z2) < .06 && nx * w.nx + nz * w.nz > .98);
 }
 export function frameOnWall(f, m) {
   const nx = Math.sin(f.a), nz = Math.cos(f.a);

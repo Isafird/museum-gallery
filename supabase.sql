@@ -46,7 +46,7 @@ create function public.is_owner(r text) returns boolean language sql stable secu
 grant usage on schema public to anon, authenticated;
 grant select on public.rooms, public.frames to anon, authenticated;
 grant select on public.members to authenticated;
-grant insert, update on public.rooms to authenticated;
+grant insert, update, delete on public.rooms to authenticated;
 grant insert, update, delete on public.members, public.frames to authenticated;
 grant execute on function public.my_email(), public.my_role(text), public.can_view(text), public.can_edit(text), public.is_owner(text) to anon, authenticated;
 
@@ -58,6 +58,7 @@ alter table public.frames enable row level security;
 -- Room: semua orang boleh membaca (hanya berisi pemilik, publik/privat, denah). Orang pertama yang membuat jadi pemilik.
 create policy rooms_read on public.rooms for select using (true);
 create policy rooms_create on public.rooms for insert to authenticated with check (owner = auth.uid());
+create policy rooms_delete on public.rooms for delete to authenticated using (owner = auth.uid());   -- pemilik boleh menghapus room (members & frames ikut terhapus)
 create policy rooms_update on public.rooms for update to authenticated using (owner = auth.uid()) with check (owner = auth.uid());
 
 -- Anggota: hanya pemilik yang mengatur; anggota boleh membaca catatannya sendiri.
@@ -82,3 +83,4 @@ create policy photos_delete on storage.objects for delete to authenticated using
 
 -- ========== Realtime (perubahan langsung muncul di semua pemain) ==========
 alter publication supabase_realtime add table public.rooms, public.frames;
+alter table public.rooms replica identity full;      -- agar penghapusan room sampai ke semua pemain

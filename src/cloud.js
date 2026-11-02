@@ -76,6 +76,7 @@ async function evaluate() {
         })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${s.id}` },
         p => { if (s.access) s.access.visibility = p.new.visibility; s.h.onLayout(p.new.layout); })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'rooms', filter: `id=eq.${s.id}` }, () => { if (s.h.onGone) s.h.onGone(); })
       .subscribe();
   } catch (e) { s.h.onError(e); }
 }
@@ -121,6 +122,21 @@ async function must(q) { const { data, error } = await q; if (error) throw error
 export const listMembers = async () => (await must(sb.from('members').select('email,role').eq('room_id', S.id))).map(r => ({ email: r.email, role: r.role }));
 export const setMember = (email, role) => must(sb.from('members').upsert({ room_id: S.id, email: email.trim().toLowerCase(), role }));
 export const removeMember = email => must(sb.from('members').delete().eq('room_id', S.id).eq('email', email));
+export const currentRoom = () => (S ? S.id : '');
+// Hapus room beserta semua foto/video-nya (hanya pemilik). Foto dihapus dulu karena izin storage bergantung pada room yang masih ada.
+export async function deleteRoom() {
+  if (!S || !S.access || !S.access.canManage) throw new Error('bukan pemilik');
+  const id = S.id;
+  for (let guard = 0; guard < 50; guard++) {                        // daftar file dibaca per 100, ulangi sampai kosong
+    const { data, error } = await sb.storage.from(BUCKET).list(id, { limit: 100 });
+    if (error) throw error; if (!data || !data.length) break;
+    const { error: e2 } = await sb.storage.from(BUCKET).remove(data.map(f => `${id}/${f.name}`));
+    if (e2) throw e2;
+  }
+  const { data, error } = await sb.from('rooms').delete().eq('id', id).select('id');      // members & frames ikut terhapus (cascade)
+  if (error) throw error;
+  if (!data || !data.length) throw new Error('ditolak: jalankan supabase-hapus-room.sql di Supabase');
+}
 export async function setVisibility(v) {
   const d = await must(sb.from('rooms').update({ visibility: v }).eq('id', S.id).select('id'));
   if (!d.length) throw new Error('ditolak'); if (S.access) S.access.visibility = v;

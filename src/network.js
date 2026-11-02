@@ -2,7 +2,8 @@ import { Peer } from 'peerjs';
 import { scene } from './scene.js';
 import { state } from './state.js';
 import { PEER_PREFIX } from './config.js';
-import { makeAvatar, disposeAvatar, nameTag, animateAvatar, sayOver, tickBubble } from './avatar.js';
+import { makeAvatar, disposeAvatar, nameTag, animateAvatar, sayOver, tickBubble, playEmote, EMOTES } from './avatar.js';
+import { sfx } from './audio.js';
 import { logChat, CHAT_LEN } from './chat.js';
 
 // Multiplayer: pemain pertama di sebuah room jadi host, yang lain konek ke host.
@@ -25,6 +26,7 @@ function remove(id) { const o = others.get(id); if (o) { if (o.g) { scene.remove
 function onData(d, from) {
   if (d.t === 's') { upsert(d); if (isHost) conns.forEach(c => { if (c !== from && c.open) c.send(d); }); }
   else if (d.t === 'c') { onChat(d); if (isHost) conns.forEach(c => { if (c !== from && c.open) c.send(d); }); }
+  else if (d.t === 'e') { const o = others.get(d.id); if (o && o.g && EMOTES[d.e]) { playEmote(o.g, d.e); sfx('emote', d.e, o.g.position.x, o.g.position.z); } if (isHost) conns.forEach(c => { if (c !== from && c.open) c.send(d); }); }
   else if (d.t === 'l') remove(d.id);
 }
 
@@ -42,6 +44,12 @@ export function sendChat(text) {
   if (isHost) { let n = 0; conns.forEach(c => { if (c.open) { c.send(m); n++; } }); return n > 0; }
   if (hostConn && hostConn.open) { hostConn.send(m); return true; }
   return false;
+}
+
+// Kirim emote ke semua pemain (tidak ada yang menerima kalau sendirian: tidak masalah)
+export function sendEmote(e) {
+  const m = { t: 'e', id: myId, e };
+  if (isHost) conns.forEach(c => c.open && c.send(m)); else if (hostConn && hostConn.open) hostConn.send(m);
 }
 
 // Server relay (TURN) supaya pemain di jaringan berbeda (mis. iPhone di data seluler) tetap bisa tersambung

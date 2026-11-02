@@ -6,8 +6,13 @@ import { toast } from './toast.js';
 import { toggleModal } from './modal.js';
 import { applyLayout, loadLocal } from './world.js';
 import { normalizeLayout, defaultLayout } from './layout.js';
+import { goMenu } from './ui.js';
 
 const $ = id => document.getElementById(id);
+
+function forget(code) {       // buang dari daftar room terakhir di menu awal
+  try { localStorage.setItem('museum-rooms', JSON.stringify((JSON.parse(localStorage.getItem('museum-rooms')) || []).filter(x => x !== code))); if (localStorage.getItem('museum-room') === code) localStorage.removeItem('museum-room'); } catch (e) {}
+}
 
 export function initOnline() {
   if (!cloud.cloudEnabled) return;
@@ -35,6 +40,15 @@ export function initOnline() {
   $('mclose').onclick = () => toggleModal($('members'));
   $('members').onclick = e => { if (e.target.id === 'members') toggleModal($('members')); };
   $('vis').onchange = async () => { try { await cloud.setVisibility($('vis').value); toast('Pengaturan disimpan'); } catch (e) { toast('Gagal menyimpan pengaturan'); } };
+  $('mdelroom').onclick = async () => {
+    const id = cloud.currentRoom(); if (!id || !state.access.canManage) return;
+    const typed = prompt(`Hapus room "${id}" beserta SEMUA foto, video, denah, dan daftar anggotanya? Ini tidak bisa dibatalkan.\n\nKetik kode room untuk memastikan:`);
+    if (typed === null) return; if (cloud.roomId(typed) !== id) { toast('Kode room tidak cocok. Tidak ada yang dihapus'); return; }
+    const b = $('mdelroom'); b.disabled = true; b.textContent = 'Menghapus...';
+    try { await cloud.deleteRoom(); forget(id); toggleModal($('members')); toast(`Room ${id} dihapus`, 4000); goMenu(); }
+    catch (e) { toast('Gagal menghapus room: ' + (e.message || e.code || e), 5000); }
+    b.disabled = false; b.textContent = 'Hapus room ini';
+  };
   $('madd').onclick = async () => {
     const em = $('memail').value.trim().toLowerCase();
     if (!/^\S+@\S+\.\S+$/.test(em)) { toast('Email tidak valid'); return; }
@@ -51,6 +65,7 @@ export function startOnline(code) {
     onLayout: l => { const n = normalizeLayout(l); if (JSON.stringify(n) !== JSON.stringify(state.layout)) applyLayout(n); },
     onFrame: (i, rec) => applyRemote(i, rec),
     onRemove: i => applyRemote(i, { ph: 0 }),
+    onGone: () => { if (!state.access || !state.access.canManage) { forget(cloud.currentRoom()); toast('Room ini dihapus oleh pemiliknya', 4000); goMenu(); } },
     onError: e => toast('Galeri online bermasalah: ' + (e.code || e.message)),
   });
 }

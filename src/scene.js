@@ -8,7 +8,7 @@ document.body.prepend(renderer.domElement);
 export const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1b1d22);
 
-export const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, .1, 100);
+export const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, .1, 500);
 camera.rotation.order = 'YXZ';
 
 addEventListener('resize', () => {

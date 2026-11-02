@@ -127,9 +127,16 @@ Pesan `No API key found in request` setelah login biasanya berarti Site URL atau
 - Format foto: JPEG, PNG, WebP, GIF, BMP, AVIF, dan HEIC/HEIF dari iPhone (HEIC diubah otomatis di browser memakai pustaka `heic-to`, dimuat hanya saat dibutuhkan). Orientasi EXIF ikut diterapkan.
 - Editor foto: tombol Putar (R) untuk memutar 90° dan meluruskan foto miring (±45°); Crop (C) punya pegangan di sudut/sisi dan kotaknya bisa digeser. Putaran disimpan di dalam kolom `crop` (field `r`), tanpa mengubah database.
 - Video di bingkai: maksimal 10 detik dan 12 MB (mp4 / webm / mov), tanpa suara, hanya 2 video terdekat yang diputar. Untuk galeri online lama, jalankan `supabase-video.sql` sekali di SQL Editor.
+- Hapus room: pemilik membuka panel **Akses galeri** (tombol Akses di menu) lalu menekan **Hapus room ini**, dan harus mengetik kode room untuk memastikan. Semua foto/video di storage dan data room dihapus. Untuk database lama, jalankan `supabase-hapus-room.sql` sekali di SQL Editor (berisi izin hapus dan perintah opsional membersihkan room kosong lama).
+- Tampilan: tema walnut dan kuningan dengan panel berbingkai ganda (`src/theme.css`, dimuat setelah `style.css`), huruf Fraunces dan Instrument Sans yang ikut terbundel (tanpa Google Fonts). Di HP, layar "Putar HP ke samping" muncul saat posisi tegak; tombol Masuk galeri juga meminta layar penuh dan mengunci mendatar (Android Chrome). iPhone tidak mengizinkan kunci, jadi pengguna memutar sendiri. Kalau dipasang lewat Tambah ke Layar Utama, manifest sudah meminta orientasi mendatar.
 - Foto disimpan di Supabase Storage (maksimal 2400 px), pengaturannya di tabel `frames`, denah di tabel `rooms`.
 - Jika dua orang mengedit bingkai yang sama bersamaan, yang terakhir menyimpan yang dipakai.
 - Project Supabase gratis di-pause otomatis setelah sekitar seminggu tidak dipakai. Buka dashboard dan klik Restore untuk mengaktifkannya lagi.
 
 ## Batasan
 Kalau host keluar, room berakhir. Pada mode lokal, foto dan edit hanya ada di browser sendiri. Foto lokal tidak otomatis diunggah ke galeri online.
+
+## Suasana: waktu, emote, suara
+- **Waktu dalam sehari** (`src/daytime.js`): tombol J / menu **Waktu** bergantian Otomatis (ikut jam HP), Pagi, Siang, Sore, Malam. Langit, matahari, bulan, bintang, cahaya dasar, dan terang lampu ikut berubah. Jendela dipasang lewat editor denah (L): alat **Jendela**, klik di dinding luar. Hapus dengan alat Hapus atau pilih lalu Delete. Denah bawaan punya 4 jendela, denah lama yang sudah tersimpan tidak punya jendela sampai kamu menambahkannya. Lewat jendela terlihat pemandangan luar: tanah, bukit, dan pohon. Pilihan disimpan di browser.
+- **Emote** (`src/emote.js`): tombol 1-7 (atau B untuk panel, tombol 😊 di HP): melambai, tepuk tangan, cinta, tertawa, kaget, jempol, menari. Terlihat oleh pemain lain lewat koneksi multiplayer yang sama dengan chat. Berjalan membatalkan emote.
+- **Suara** (`src/audio.js`): semua dibuat langsung oleh browser, tanpa file suara. N = musik latar (nada, tempo, dan bunyi dipilih dari kode room, lebih pelan di malam hari), K = suara ruangan (langkah kaki di kayu, pendaratan, gema yang mengikuti luas museum, burung di siang hari dan jangkrik di malam hari yang lebih jelas dekat dinding luar). Suara baru mulai setelah pengguna menyentuh layar, sesuai aturan browser.
