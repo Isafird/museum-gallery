@@ -144,11 +144,14 @@ function plan(o) {
   stops.forEach(s => {
     const path = makePath(c, prev, s); if (!path) return;
     const fov = frameFov(s, s.d - .2, aspect), pitch = Math.atan2(LOOK_Y - CAM_Y, s.d - .2);
-    const ta = Math.min(1.0, Math.max(.4, path.L / v / 3)), dur = Math.max(1.4, path.L / v + ta);
-    segs.push({ k: 'go', t0: t, dur, path, ta, from: prev, to: { ...s, fov, pitch } }); t += dur;
+    const ta = Math.min(1.0, Math.max(.4, path.L / v / 3));
+    const crab = !!o.crab && prev.id !== undefined && Math.abs(wrap(s.a - prev.a)) < .9 && path.L < 12;      // bingkai berdekatan: geser menyamping, kamera tidak berputar
+    const turn = crab ? Math.abs(wrap(s.a - prev.a)) : Math.abs(wrap(headYaw(path, 0) - prev.a)) + Math.abs(wrap(s.a - headYaw(path, path.L)));
+    const dur = Math.max(1.4, path.L / v + ta, 1.1 + turn / .8);                 // cukup lama supaya kamera berputar dengan halus (tidak menyentak)
+    segs.push({ k: 'go', t0: t, dur, path, ta, crab, from: prev, to: { ...s, fov, pitch } }); t += dur;
     const dolly = Math.max(0, Math.min(.4, s.d - MIN_D));
     segs.push({ k: 'stay', t0: t, dur: o.dwell, s, fov, pitch, dolly }); t += o.dwell;
-    prev = { x: s.x, z: s.z, cell: s.cell, a: s.a, fov, pitch };
+    prev = { id: s.id, x: s.x, z: s.z, cell: s.cell, a: s.a, fov, pitch };
   });
   if (!segs.length) return null;
   return { segs, T: t + 1.2, n: stops.length, W: o.W, H: o.H, aspect, baseFov, o };
@@ -162,9 +165,10 @@ function pose(P, t) {       // posisi dan arah kamera pada detik ke-t
   }
   const { path, ta, dur, from, to } = seg, vv = path.L / (dur - ta), tt = Math.min(u, dur);
   const s = tt < ta ? vv * tt * tt / (2 * ta) : tt > dur - ta ? path.L - vv * (dur - tt) * (dur - tt) / (2 * ta) : vv * (tt - ta / 2);
-  const [x, z] = at(path, s), head = headYaw(path, s);
-  const a1 = Math.min(2.2, path.L * .45) || 1, a2 = Math.min(3.2, path.L * .6) || 1;
-  const w1 = sm(s / a1), w2 = sm((s - (path.L - a2)) / a2);
+  const [x, z] = at(path, s);
+  if (seg.crab) { const w = sm(s / (path.L || 1)); return { x, z, yaw: lerpA(from.a, to.a, w), pitch: from.pitch + (to.pitch - from.pitch) * w, fov: from.fov + (to.fov - from.fov) * w }; }
+  const head = headYaw(path, s);
+  const w1 = sm(tt / (dur * .45)), w2 = sm((tt - dur * .55) / (dur * .45));      // berputar pelan di awal dan di akhir perjalanan (berdasarkan waktu)
   let yaw = lerpA(lerpA(from.a, head, w1), to.a, w2);
   return { x, z, yaw, pitch: to.pitch * w2, fov: lerpA(lerpA(from.fov, P.baseFov, w1), to.fov, w2) };
 }
@@ -226,6 +230,7 @@ export function stopTour(done = false) {          // done: selesai sampai akhir 
 }
 
 export const tourSeek = t => { if (run) run.t = t; };      // untuk pengujian otomatis
+export const tourPose = t => run && pose(run.P, t);
 export const tourInfo = () => run && { t: run.t, T: run.P.T, n: run.P.n, segs: run.P.segs.length };
 export function tourUpdate(dt) {                  // dipanggil tiap frame dari loop utama
   if (!run) return;
@@ -265,7 +270,7 @@ function resetModal() {
 }
 const readOpts = () => ({
   size: $('tr-asp').value, dwell: +$('tr-dwell').value, speed: $('tr-speed').value, order: $('tr-order').value,
-  time: $('tr-time-sel').value, audio: $('tr-aud').checked, rec: $('tr-rec').checked,
+  crab: $('tr-crab').checked, time: $('tr-time-sel').value, audio: $('tr-aud').checked, rec: $('tr-rec').checked,
 });
 let infoTimer = 0;
 function info() {
@@ -284,7 +289,7 @@ export function openTour() {
   const m = $('tour'); if (!m.classList.contains('open')) { if (openModal()) return; resetModal(); toggleModal(m); } else toggleModal(m);
 }
 export function initTour() {
-  ['tr-asp', 'tr-dwell', 'tr-speed', 'tr-order'].forEach(id => $(id).addEventListener('change', info));
+  ['tr-asp', 'tr-dwell', 'tr-speed', 'tr-order', 'tr-crab'].forEach(id => $(id).addEventListener('change', info));
   $('tr-rec').addEventListener('change', () => { $('tr-aud').disabled = !$('tr-rec').checked; });
   $('tr-go').onclick = () => { const o = readOpts(); toggleModal($('tour')); setTimeout(() => startTour(o), 60); };
   $('tr-close').onclick = () => toggleModal($('tour')); $('tr-close2').onclick = () => { toggleModal($('tour')); };

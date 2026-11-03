@@ -148,10 +148,11 @@
   <div id="tourset">
     <p class="s">Kamera berjalan sendiri melewati semua bingkai mengikuti denah museum, lalu videonya bisa kamu unduh.</p>
     <label>Bentuk video<select id="tr-asp"><option value="1280x720">Landscape 16:9 (1280×720)</option><option value="1920x1080">Landscape Full HD (1920×1080)</option><option value="720x1280">Potret 9:16 (720×1280)</option><option value="1080x1920">Potret Full HD (1080×1920)</option></select></label>
-    <label>Lama berhenti di tiap bingkai<select id="tr-dwell"><option value="2.5">2,5 detik</option><option value="3.5" selected>3,5 detik</option><option value="5">5 detik</option><option value="7">7 detik</option></select></label>
+    <label>Lama berhenti di tiap bingkai<select id="tr-dwell"><option value="1">1 detik</option><option value="2.5">2,5 detik</option><option value="3.5" selected>3,5 detik</option><option value="5">5 detik</option><option value="7">7 detik</option></select></label>
     <label>Kecepatan berjalan<select id="tr-speed"><option value="santai">Santai</option><option value="normal" selected>Normal</option><option value="cepat">Cepat</option></select></label>
     <label>Urutan bingkai<select id="tr-order"><option value="auto">Otomatis (rute paling singkat)</option><option value="id">Sesuai nomor bingkai</option></select></label>
     <label>Waktu di luar jendela<select id="tr-time-sel"><option value="keep">Seperti sekarang</option><option value="pagi">Pagi</option><option value="siang">Siang</option><option value="sore">Sore</option><option value="malam">Malam</option></select></label>
+    <label class="chk"><input type="checkbox" id="tr-crab" checked> Bingkai berdekatan: geser menyamping, kamera tidak berputar</label>
     <label class="chk"><input type="checkbox" id="tr-rec" checked> Rekam jadi video</label>
     <label class="chk"><input type="checkbox" id="tr-aud" checked> Sertakan musik dan suara ruangan</label>
     <p id="tr-info" class="s"></p>

@@ -150,7 +150,8 @@ Menu **Tur otomatis** (tombol **U**) membuat kamera berjalan sendiri melewati se
 - Pilih bentuk video: landscape (1280×720 atau 1920×1080) atau potret (720×1280 atau 1080×1920). Pratinjau di layar sudah sesuai bentuk video.
 - Rute dicari dari denah (tidak menembus dinding, memutar lewat pintu), lalu urutan bingkai dirapikan supaya jalannya paling singkat. Bisa juga diurutkan sesuai nomor bingkai.
 - Kamera berhenti di depan tiap bingkai dengan sudut pandang yang menyesuaikan jarak dan bentuk bingkai (mendatar atau tegak), perlahan mendekat, dan memudar hitam di awal dan akhir.
-- Bisa memilih lama berhenti, kecepatan berjalan, waktu di luar jendela (pagi sampai malam), dan menyertakan musik/suara ruangan.
+- Opsi **geser menyamping**: antar bingkai yang berdekatan dan searah, kamera tetap menghadap dinding dan hanya bergeser (seperti kepiting), tidak berputar. Berputar hanya kalau arah bingkai berikutnya berbeda jauh.
+- Bisa memilih lama berhenti (mulai 1 detik), kecepatan berjalan, waktu di luar jendela (pagi sampai malam), dan menyertakan musik/suara ruangan.
 - Perekaman memakai MediaRecorder di browser: hasilnya MP4 bila browser mendukung, kalau tidak WebM. Tur berjalan secara real time, jadi tab harus tetap terbuka. **Esc** menghentikan tur dan video sampai saat itu tetap bisa diunduh.
 
 ## Bingkai di dinding melengkung
