@@ -218,6 +218,23 @@ export function windowOnWall(f, m) {
   const nx = Math.sin(f.a), nz = Math.cos(f.a);
   return m.walls.some(w => !w.div && segD(f.x, f.z, w.x1, w.z1, w.x2, w.z2) < .06 && nx * w.nx + nz * w.nz > .98);
 }
+// Dinding melengkung (lingkaran / elips) tersusun dari potongan lurus, sedangkan bingkai rata: ujung samping bingkai bisa masuk ke dinding.
+// Hitung berapa meter bingkai perlu dimajukan dari dinding supaya seluruh lebarnya tetap di depan dinding.
+export function frameGap(m, f, vert) {
+  const hw = vert ? 1.1 : 1.45, nx = Math.sin(f.a), nz = Math.cos(f.a), ux = nz, uz = -nx, R = .9; let gap = 0;
+  for (let k = -4; k <= 4; k++) {
+    const s = hw * k / 4, ox = f.x + ux * s + nx * R, oz = f.z + uz * s + nz * R; let t = Infinity;
+    for (const w of m.walls) {                                          // sinar dari depan bingkai menuju dinding (arah -n)
+      const ex = w.x2 - w.x1, ez = w.z2 - w.z1, den = -nx * ez + nz * ex; if (Math.abs(den) < 1e-9) continue;
+      const qx = w.x1 - ox, qz = w.z1 - oz, tt = (qx * ez - qz * ex) / den, uu = (qx * -nz + qz * nx) / den * -1;
+      // titik pada sinar: o - n*tt ; pada dinding: w1 + e*uu
+      const px = ox - nx * tt, pz = oz - nz * tt, e2 = ex * ex + ez * ez, u2 = ((px - w.x1) * ex + (pz - w.z1) * ez) / e2;
+      if (tt > 0 && u2 >= -1e-6 && u2 <= 1 + 1e-6 && tt < t) t = tt;
+    }
+    if (isFinite(t)) gap = Math.max(gap, R - t);
+  }
+  return Math.max(0, gap - .04);
+}
 export function frameOnWall(f, m) {
   const nx = Math.sin(f.a), nz = Math.cos(f.a);
   return m.walls.some(w => segD(f.x, f.z, w.x1, w.z1, w.x2, w.z2) < .06 && (w.div ? Math.abs(nx * w.nx + nz * w.nz) : nx * w.nx + nz * w.nz) > .98);

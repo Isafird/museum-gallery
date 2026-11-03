@@ -24,6 +24,7 @@ import { applyLayout, loadLocal, updateFrameDrag, isDraggingFrame } from './worl
 import { defaultLayout } from './layout.js';
 import { updateDaytime, setTimeMode } from './daytime.js';
 import { startAudio, updateAudio, setMusicSeed } from './audio.js';
+import { initTour, tourActive, tourUpdate, startTour, tourSeek, tourInfo } from './tour.js';
 
 const { H } = ROOM;
 const JUMP_V = 5.6, GRAV = 16;   // loncat setinggi ±1 m
@@ -38,7 +39,7 @@ initUI({
   onStart: (code, online) => { startAudio(); setMusicSeed(code || 'lokal'); state.active = true; camera.clearViewOffset(); lockCursor(); clearChat(); if (code) connect(code); if (online) startOnline(code); },
   onMenu: backToMenu,
 });
-initOnline();
+initOnline(); initTour();
 initChat({ onSend: text => { sayOver(me, text); return sendChat(text); } });
 loadLocal();                           // mode lokal: muat denah dan foto tersimpan di browser
 
@@ -55,7 +56,7 @@ async function backToMenu() {
   showStart(); toast('Kembali ke menu awal');
 }
 
-if (location.search.includes('debug')) window.__s = { makeAvatar, state, walkable, entries, setFrameStyle, render, renderer, scene, camera, applyLayout, isDraggingFrame, setTimeMode };   // hook untuk pengujian otomatis (tambahkan ?debug ke alamat)
+if (location.search.includes('debug')) window.__s = { makeAvatar, state, walkable, entries, setFrameStyle, render, renderer, scene, camera, applyLayout, isDraggingFrame, setTimeMode, startTour, tourSeek, tourInfo };   // hook untuk pengujian otomatis (tambahkan ?debug ke alamat)
 if (new URLSearchParams(location.search).has('cek')) import('./diagnose.js').then(m => m.run());   // halaman diagnosis Supabase
 const ray = new THREE.Raycaster(), clock = new THREE.Clock();
 
@@ -77,15 +78,22 @@ function jumpStep(dt) {
   if (P.y > 0 || P.vy > 0) { P.vy -= GRAV * dt; P.y = Math.max(0, P.y + P.vy * dt); if (P.y === 0) P.vy = 0; }
 }
 
+const stageLight = new THREE.PointLight(0xfff1dc, 1.6, 9, 1.6); stageLight.visible = false; scene.add(stageLight);
+
 function placeCamera(t) {
   const { yaw, pitch } = state;
   if (!state.active) {                 // layar awal: kamera memandang karakter
     me.visible = true; me.rotation.y = t * .7;
-    camera.position.set(P.x, 1.35, P.z - 3); camera.lookAt(P.x, 1.05, P.z);
-    if (innerWidth > 700) camera.setViewOffset(innerWidth, innerHeight, -innerWidth * .2, innerHeight * .14, innerWidth, innerHeight);   // karakter agak ke atas supaya panel edit di bawahnya tidak menutupi
+    const wide = innerWidth > 700, editing = document.body.classList.contains('charopen');
+    camera.position.set(P.x, 1.3, P.z - (editing ? (wide ? 3.0 : 2.6) : 3)); camera.lookAt(P.x, editing ? .85 : 1.0, P.z);
+    stageLight.visible = true; stageLight.position.set(P.x + 1.2, 2.4, P.z - 2.4);
+    if (wide) {                         // karakter di tengah area yang tidak tertutup panel
+      const panelW = Math.min(560, innerWidth * .59) + innerWidth * .04 + 24, shift = Math.max(0, (innerWidth - panelW) / 2 + panelW - innerWidth / 2);
+      camera.setViewOffset(innerWidth, innerHeight, -shift, 0, innerWidth, innerHeight);
+    }
     return;
   }
-  me.rotation.y = yaw; me.visible = state.third;
+  stageLight.visible = false; me.rotation.y = yaw; me.visible = state.third;
   if (state.cam === 2) {               // kamera dari depan: menghadap karakter, mundur kalau terhalang dinding
     const cp = Math.cos(pitch); let d = 3, cx = P.x, cz = P.z;
     for (; d > .4; d -= .4) { cx = P.x - Math.sin(yaw) * cp * d; cz = P.z - Math.cos(yaw) * cp * d; if (walkable(cx, cz, .25)) break; }
@@ -105,7 +113,7 @@ const RATIOS = [2, 1.5, 1.25, 1, .85, .7];
 let qi = Math.max(0, RATIOS.findIndex(r => r <= Math.min(devicePixelRatio, 2))), qLast = 0, qN = 0, qSum = 0, qWarm = 0, qTurn = 0, qToast = false;
 function autoQuality(now) {
   const gap = now - qLast; qLast = now;
-  if (!state.active || state.viewing || document.hidden || gap > 250) { qN = 0; qSum = 0; qWarm = 20; return; }
+  if (state.touring || !state.active || state.viewing || document.hidden || gap > 250) { qN = 0; qSum = 0; qWarm = 20; return; }
   if (qWarm > 0) { qWarm--; return; }                                       // abaikan beberapa frame setelah masuk / berhenti
   qSum += gap; qN++;
   if (qN < 90) return;
@@ -123,14 +131,16 @@ function loop() {
   requestAnimationFrame(loop);
   const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
   if (state.active && state.viewing) { pauseVideos(); updateAudio(dt, true, 0, false, P.x, P.z); return; }      // editor denah / foto / bantuan menutupi layar: tidak perlu menggambar museum
-  const amt = state.active && !state.viewing ? move(dt) : 0;
-  if (state.active) jumpStep(dt);
+  const touring = tourActive();
+  const amt = state.active && !state.viewing && !touring ? move(dt) : 0;
+  if (state.active && !touring) jumpStep(dt);
   updateAudio(dt, state.active, amt, P.y > 0, P.x, P.z);
   me.position.set(P.x, P.y, P.z); animateAvatar(me, P.y > 0 ? .25 : amt, t); tickBubble(me);
-  placeCamera(t); updateOthers(dt, t); updateDaytime(dt); updateLamps(dt, P.x, P.z); updateFrameDrag(); updateVideos(camera); autoQuality(performance.now());
+  if (touring) tourUpdate(dt); else placeCamera(t);
+  updateOthers(dt, t); updateDaytime(dt); updateLamps(dt, P.x, P.z); updateFrameDrag(); updateVideos(camera); autoQuality(performance.now());
 
   state.target = -1;
-  if (state.active && !state.viewing && state.cam !== 2) {
+  if (state.active && !state.viewing && !touring && state.cam !== 2) {
     ray.setFromCamera({ x: 0, y: 0 }, camera);
     const h = ray.intersectObjects(pics)[0];
     if (h && h.distance < (state.third ? 9 : 6)) state.target = h.object.userData.i;
