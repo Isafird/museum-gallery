@@ -25,7 +25,8 @@ const col = s => new THREE.Color(s);
 const KS = K.map(r => ({ h: r[0], top: col(r[1]), hor: col(r[2]), amb: col(r[3]), ai: r[4], gnd: col(r[5]), hill: col(r[6]), tree: col(r[7]), lamp: r[8], sun: col(r[9]) }));
 
 export const hemi = new THREE.HemisphereLight(0xffffff, 0x6b5a4a, .45); scene.add(hemi);   // cahaya dasar museum
-let lampK = 1; export const lampScale = () => lampK;                                     // pengali terang lampu ruangan (dipakai gallery.js)
+let lampK = 1; export const lampScale = () => lampK;
+export const spotLevel = { v: .5 };      // seberapa terlihat berkas lampu sorot: samar di siang hari, jelas di malam hari (0.3 .. 1)                                     // pengali terang lampu ruangan (dipakai gallery.js)
 export const outdoor = new THREE.Group(); scene.add(outdoor);
 const gndM = new THREE.MeshBasicMaterial({ color: 0x5c8f3f, polygonOffset: true, polygonOffsetFactor: 4, polygonOffsetUnits: 4 }),   // didorong ke belakang supaya tidak berebut kedalaman dengan lantai museum
    hillM = new THREE.MeshBasicMaterial({ color: 0x7b9db6 }), leafM = new THREE.MeshBasicMaterial({ color: 0x3f7d3a }), trunkM = new THREE.MeshBasicMaterial({ color: 0x4a3524 });
@@ -105,7 +106,7 @@ export function applyHour(h) {
   U.sunDir.value.copy(sunDir); U.moonDir.value.copy(moonDir);
   U.night.value = Math.max(0, Math.min(1, (.12 - sunDir.y) / .3));
   gndM.color.copy(tmp.gnd); hillM.color.copy(tmp.hill).lerp(tmp.hor, .35); leafM.color.copy(tmp.tree); trunkM.color.copy(tmp.tree).multiplyScalar(.7).add(new THREE.Color(.08, .05, .02));
-  hemi.color.copy(tmp.amb); hemi.intensity = v.ai; lampK = v.lamp;
+  hemi.color.copy(tmp.amb); hemi.intensity = v.ai; lampK = v.lamp; spotLevel.v = .3 + .7 * Math.max(0, Math.min(1, (.45 - v.ai) / .25));
   scene.background = tmp.hor;
 }
 // dipanggil tiap frame: langit mengikuti kamera; jam bergeser halus menuju tujuan (tanpa lompatan saat ganti waktu)

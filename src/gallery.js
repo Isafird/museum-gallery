@@ -4,7 +4,7 @@ import { ROOM, TITLES, DEFAULT_PHOTO, FRAME_STYLES } from './config.js';
 import { analyze, walkable as walk, inFloor, segD, FRAME_OFF, WALL_T, DOOR_W, MAX_LIGHTS, WIN_W } from './layout.js';
 import { buildFrame } from './frames3d.js';
 import { mergeBufferGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { buildOutdoor, lampScale } from './daytime.js';
+import { buildOutdoor, lampScale, spotLevel } from './daytime.js';
 
 const { H } = ROOM;
 export const entries = [];   // entries[id]: { art, canvas, tex, frameMesh, title, data, bmp }  (id = nomor bingkai)
@@ -129,19 +129,43 @@ export function setFrameStyle(i) {
   if (e.plaque) e.plaque.position.set(0, e.plSide === 't' ? e.eyt + .2 : -(e.ey + .2), .03);
 }
 
-// ---- lampu sorot: lampu di langit-langit, berkas cahaya, dan bercak terang di dinding ----
+// ---- lampu sorot: lampu di langit-langit, berkas cahaya lembut, dan bercak terang di dinding ----
+// Berkas dibuat dengan shader: pudar di pangkal dan ujung, serta di tepi kerucut (tidak ada garis tegas). Terangnya mengikuti waktu (spotLevel).
+const beamM = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  uniforms: { level: { value: .5 } },
+  vertexShader: `varying vec3 vN; varying vec3 vV; varying float vT;
+    void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); vT = uv.y; gl_Position = projectionMatrix * mv; }`,
+  fragmentShader: `uniform float level; varying vec3 vN; varying vec3 vV; varying float vT;
+    void main(){
+      float t = 1.0 - vT;                                        // 0 di lampu, 1 di lukisan
+      float edge = pow(abs(dot(normalize(vN), normalize(vV))), 2.4);
+      float a = smoothstep(0.0, 0.18, t) * (1.0 - smoothstep(0.55, 1.0, t)) * edge * 0.20 * level;
+      gl_FragColor = vec4(vec3(1.0, 0.88, 0.62) * a, a);
+    }`,
+});
+let poolTex;
+function pool() {                                                  // bercak di dinding: terang di atas lukisan, memudar ke bawah dan ke samping
+  if (!poolTex) {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 256; const g = c.getContext('2d');
+    g.save(); g.translate(128, 96); g.scale(1, .82);
+    const gr = g.createRadialGradient(0, 0, 4, 0, 0, 124); gr.addColorStop(0, 'rgba(255,238,200,.95)'); gr.addColorStop(.45, 'rgba(255,226,170,.38)'); gr.addColorStop(1, 'rgba(255,220,160,0)');
+    g.fillStyle = gr; g.fillRect(-128, -128, 256, 300); g.restore(); poolTex = new THREE.CanvasTexture(c);
+  }
+  return poolTex;
+}
+const poolM = new THREE.MeshBasicMaterial({ map: pool(), transparent: true, opacity: .3, blending: THREE.AdditiveBlending, depthWrite: false });
 function addSpot(g, ey) {
-  const pool = new THREE.Mesh(new THREE.PlaneGeometry(3.8, 3.2), new THREE.MeshBasicMaterial({ map: glow(), transparent: true, opacity: .5, blending: THREE.AdditiveBlending, depthWrite: false }));
-  pool.position.set(0, 0, -.044); pool.userData.own = true; g.add(pool);
+  const bp = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.4), poolM);
+  bp.position.set(0, .35, -.044); g.add(bp);
   const lampY = Math.min(2.2, ey + .9), lp = new THREE.Vector3(0, lampY, .85), tg = new THREE.Vector3(0, -.05, .05), up = new THREE.Vector3(0, 1, 0);
   const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(tg, lp, up));   // sumbu +z menuju lukisan
   const arm = new THREE.Mesh(new THREE.BoxGeometry(.04, .04, .9), metalDark); arm.position.set(0, lampY + .1, .4); g.add(arm);
   const head = new THREE.Group(); head.position.copy(lp); head.quaternion.copy(q); g.add(head);
   head.add(new THREE.Mesh(new THREE.CylinderGeometry(.1, .07, .22, 16).rotateX(Math.PI / 2), metalDark));
   const lens = new THREE.Mesh(new THREE.CircleGeometry(.085, 16), fixOn); lens.position.z = .112; head.add(lens);
-  const L = lp.distanceTo(tg), beamG = new THREE.CylinderGeometry(.03, 1.2, L, 28, 1, true); beamG.translate(0, -L / 2, 0); beamG.rotateX(-Math.PI / 2);
-  const beam = new THREE.Mesh(beamG, new THREE.MeshBasicMaterial({ color: 0xfff1c8, transparent: true, opacity: .08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-  beam.userData.own = true; head.add(beam);
+  const L = lp.distanceTo(tg), beamG = new THREE.CylinderGeometry(.04, 1.05, L, 32, 1, true); beamG.translate(0, -L / 2, 0); beamG.rotateX(-Math.PI / 2);
+  const beam = new THREE.Mesh(beamG, beamM); beam.renderOrder = 2; head.add(beam);
 }
 
 // ---- lampu ruangan: jumlah cahaya asli (PointLight) dibatasi POOL, karena tiap lampu menambah beban di setiap piksel.
@@ -162,6 +186,7 @@ function setupLamps(list) {
 }
 let acc = 1;
 export function updateLamps(dt, px, pz) {
+  beamM.uniforms.level.value = spotLevel.v; poolM.opacity = .10 + .30 * spotLevel.v;
   if (lamps.length <= POOL) return;
   const fade = dt * 3; let want = null;
   acc += dt; if (acc > .25) {                                      // pilih lampu terdekat 4x per detik
