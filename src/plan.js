@@ -269,6 +269,9 @@ function renderProps() {
     const s = document.createElement('select'); [['b', 'Di bawah lukisan'], ['t', 'Di atas lukisan'], ['n', 'Tanpa papan nama']].forEach(([v, n]) => s.add(new Option(n, v)));
     s.value = o.pl || 'b'; s.onchange = () => { const v = s.value, i = sel.i; commit(() => { work.frames[i].pl = v; }); s.blur(); }; lab.append(s); box.append(lab);
     chip(o.o === 'v' ? 'Bingkai: tegak' : 'Bingkai: mendatar', () => { const i = sel.i; commit(() => { if (work.frames[i].o === 'v') delete work.frames[i].o; else work.frames[i].o = 'v'; }); }, o.o === 'v');
+    const tl = document.createElement('label'); tl.textContent = 'Di tur otomatis';
+    const ts = document.createElement('select'); [['', 'Biasa'], ['s', 'Lewati bingkai ini'], ['l', 'Berhenti 2x lebih lama'], ['x', 'Berhenti 3x lebih lama']].forEach(([v, n]) => ts.add(new Option(n, v)));
+    ts.value = o.tr || ''; ts.onchange = () => { const v = ts.value, i = sel.i; commit(() => { if (v) work.frames[i].tr = v; else delete work.frames[i].tr; }); ts.blur(); }; tl.append(ts); box.append(tl);
     chip(o.sp ? 'Lampu sorot: nyala' : 'Lampu sorot: tidak ada', () => { const i = sel.i; commit(() => { work.frames[i].sp = !work.frames[i].sp; }); }, o.sp);
   } else if (sel.t === 'light') {
     label('Lampu ruangan'); chip(o.on ? 'Menyala (klik untuk mematikan)' : 'Mati (klik untuk menyalakan)', toggleLight, o.on); label('Spasi = nyala/mati');

@@ -171,6 +171,7 @@ function addSpot(g, ey) {
 // ---- lampu ruangan: jumlah cahaya asli (PointLight) dibatasi POOL, karena tiap lampu menambah beban di setiap piksel.
 // Kalau lampu <= POOL semuanya menyala seperti biasa. Kalau lebih banyak, cahaya dipakai bergantian untuk lampu yang paling dekat
 // dengan pemain, dan berpindah dengan memudar halus (tidak ada kedipan). Fitting lampu tetap terlihat semua.
+export const fx = { lamp: 1, spot: 1 };      // pengali sementara untuk perekaman video (gaya sinematik)
 const LIGHT_I = .9, POOLS = [12, 8, 6, 4];     // mulai 12 (sama seperti sebelumnya); turun otomatis kalau FPS rendah
 let POOL = POOLS[0], lamps = [], slots = [];
 export function lowerLamps() {                  // dipanggil kualitas otomatis: kurangi jumlah cahaya asli. true kalau ada yang berubah
@@ -186,8 +187,8 @@ function setupLamps(list) {
 }
 let acc = 1;
 export function updateLamps(dt, px, pz) {
-  beamM.uniforms.level.value = spotLevel.v; poolM.opacity = .10 + .30 * spotLevel.v;
-  if (lamps.length <= POOL) return;
+  const sl = Math.min(1.6, spotLevel.v * fx.spot); beamM.uniforms.level.value = sl; poolM.opacity = .10 + .30 * sl;
+  if (lamps.length <= POOL) { slots.forEach(s => { s.light.intensity = LIGHT_I * fx.lamp; }); return; }
   const fade = dt * 3; let want = null;
   acc += dt; if (acc > .25) {                                      // pilih lampu terdekat 4x per detik
     acc = 0; want = new Set(lamps.map((l, i) => [Math.hypot(l.x - px, l.z - pz), i]).sort((a, b) => a[0] - b[0]).slice(0, POOL).map(a => a[1]));
@@ -199,7 +200,7 @@ export function updateLamps(dt, px, pz) {
       s.level = Math.max(0, s.level - fade);
       if (s.level === 0) { s.lamp = s.next; s.next = undefined; s.keep = true; const l = lamps[s.lamp]; s.light.position.set(l.x, H - .4, l.z); }
     } else s.level = Math.min(1, s.level + fade);
-    s.light.intensity = LIGHT_I * lampScale() * s.level;
+    s.light.intensity = LIGHT_I * lampScale() * s.level * fx.lamp;
   });
 }
 

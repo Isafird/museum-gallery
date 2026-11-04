@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { renderer, camera, scene, sizeLock } from './scene.js';
 import { state } from './state.js';
-import { walkable, museum } from './gallery.js';
+import { walkable, museum, fx } from './gallery.js';
 import { findSpawn } from './layout.js';
 import { openModal, toggleModal } from './modal.js';
 import { setTimeMode, timeMode } from './daytime.js';
@@ -40,7 +40,7 @@ function prepare() {
       const x = f.x + nx * d, z = f.z + nz * d;
       if (!walkable(x, z, .4)) continue;
       const cell = cellOf(x, z); if (cell < 0) continue;
-      c.stops.push({ id: f.id, x, z, a: f.a, d, vert: f.o === 'v', cell, dm: null }); break;
+      c.stops.push({ id: f.id, x, z, a: f.a, d, vert: f.o === 'v', tr: f.tr, cell, dm: null }); break;
     }
   });
   return (cache = c);
@@ -120,7 +120,7 @@ function plan(o) {
   const sx = walkable(state.P.x, state.P.z, .4) ? state.P.x : findSpawn(museum)[0], sz = walkable(state.P.x, state.P.z, .4) ? state.P.z : findSpawn(museum)[1];
   const start = { x: sx, z: sz, cell: c.cellOf(sx, sz) }; if (start.cell < 0) return null;
   const sd = dijkstra(c, start.cell).dist;
-  let stops = c.stops.filter(s => isFinite(sd[s.cell]));
+  let stops = c.stops.filter(s => s.tr !== 's' && isFinite(sd[s.cell]));        // bingkai yang ditandai "lewati" tidak dikunjungi
   if (!stops.length) return null;
   if (o.order === 'id') stops.sort((p, q) => p.id - q.id);
   else {
@@ -140,7 +140,7 @@ function plan(o) {
     stops = ord.map(i => stops[i]);
   }
   const aspect = o.W / o.H, baseFov = aspect < 1 ? 82 : 64, v = SPEEDS[o.speed] || SPEEDS.normal;
-  const segs = []; let t = 0, prev = { ...start, a: state.yaw, fov: baseFov, pitch: 0 };
+  const doors = (museum.layout && museum.layout.doors) || [], segs = [], dips = []; let t = 0, prev = { ...start, a: state.yaw, fov: baseFov, pitch: 0 };
   stops.forEach(s => {
     const path = makePath(c, prev, s); if (!path) return;
     const fov = frameFov(s, s.d - .2, aspect), pitch = Math.atan2(LOOK_Y - CAM_Y, s.d - .2);
@@ -148,33 +148,58 @@ function plan(o) {
     const crab = !!o.crab && prev.id !== undefined && Math.abs(wrap(s.a - prev.a)) < .9 && path.L < 12;      // bingkai berdekatan: geser menyamping, kamera tidak berputar
     const turn = crab ? Math.abs(wrap(s.a - prev.a)) : Math.abs(wrap(headYaw(path, 0) - prev.a)) + Math.abs(wrap(s.a - headYaw(path, path.L)));
     const dur = Math.max(1.4, path.L / v + ta, 1.1 + turn / .8);                 // cukup lama supaya kamera berputar dengan halus (tidak menyentak)
-    segs.push({ k: 'go', t0: t, dur, path, ta, crab, from: prev, to: { ...s, fov, pitch } }); t += dur;
-    const dolly = Math.max(0, Math.min(.4, s.d - MIN_D));
-    segs.push({ k: 'stay', t0: t, dur: o.dwell, s, fov, pitch, dolly }); t += o.dwell;
+    segs.push({ k: 'go', t0: t, dur, path, ta, crab, from: prev, to: { ...s, fov, pitch } });
+    if (o.doorfade && doors.length) {                                          // melewati pintu: catat saatnya untuk pudar singkat (tiap pintu yang dilewati)
+      const vv = path.L / (dur - ta), sAt = tt => tt < ta ? vv * tt * tt / (2 * ta) : tt > dur - ta ? path.L - vv * (dur - tt) * (dur - tt) / (2 * ta) : vv * (tt - ta / 2);
+      doors.forEach(d => {
+        const nx = Math.sin(d.a), nz = Math.cos(d.a); let sD = -1, last = null;      // melintasi bidang pintu (lebar bukaan antar ruangan bisa sampai 5 m)
+        for (let q = .3; q < path.L - .3 && sD < 0; q += .1) { const [px, pz] = at(path, q), side = (px - d.x) * nx + (pz - d.z) * nz, lat = Math.abs((px - d.x) * nz - (pz - d.z) * nx); if (last !== null && last * side < 0 && lat < 3.2) sD = q; last = side; }
+        if (sD < 0) return; let tt = 0; while (tt < dur && sAt(tt) < sD) tt += .03; dips.push(t + tt);
+      });
+    }
+    t += dur;
+    const dwell = o.dwell * (s.tr === 'l' ? 2 : s.tr === 'x' ? 3 : 1);        // bingkai yang ditandai berhenti lebih lama
+    segs.push({ k: 'stay', t0: t, dur: dwell, s, fov, pitch }); t += dwell;
     prev = { id: s.id, x: s.x, z: s.z, cell: s.cell, a: s.a, fov, pitch };
   });
   if (!segs.length) return null;
-  return { segs, T: t + 1.2, n: stops.length, W: o.W, H: o.H, aspect, baseFov, o };
+  return { segs, dips, T: t + 1.2, n: stops.length, W: o.W, H: o.H, aspect, baseFov, o };
 }
-function pose(P, t) {       // posisi dan arah kamera pada detik ke-t
+function pose(P, t) {       // posisi dan arah kamera pada detik ke-t (+ gerak sinematik: napas langkah dan goyangan halus)
+  const p = pose0(P, t); if (P.o.style !== 'cine') return p;
+  const mv = p.mv || 0;
+  p.y = CAM_Y + Math.sin(t * 7.2) * .022 * mv + Math.sin(t * .9) * .012;
+  p.yaw += Math.sin(t * 1.3) * .005 + Math.sin(t * 2.9) * .003; p.pitch += Math.sin(t * 1.7) * .004 + Math.sin(t * 6.1) * .003 * mv;
+  p.roll = Math.sin(t * 3.6) * .004 * mv;
+  return p;
+}
+function pose0(P, t) {
   let seg = P.segs[P.segs.length - 1]; for (const s of P.segs) if (t < s.t0 + s.dur) { seg = s; break; }
   const u = t - seg.t0;
   if (seg.k === 'stay') {
     const s = seg.s, nx = Math.sin(s.a), nz = Math.cos(s.a), side = Math.sin(t * .6) * .07 * Math.min(1, u / 1.2);
-    return { x: s.x + nz * side, z: s.z - nx * side, yaw: s.a + Math.sin(t * .5) * .012, pitch: seg.pitch, fov: seg.fov };      // diam di tempat (hanya goyangan halus): mendekat ke bingkai cukup sekali, saat berjalan
+    return { x: s.x + nz * side, z: s.z - nx * side, yaw: s.a + Math.sin(t * .5) * .012, pitch: seg.pitch, fov: seg.fov, mv: 0 };      // diam di tempat (hanya goyangan halus): mendekat ke bingkai cukup sekali, saat berjalan
   }
   const { path, ta, dur, from, to } = seg, vv = path.L / (dur - ta), tt = Math.min(u, dur);
   const s = tt < ta ? vv * tt * tt / (2 * ta) : tt > dur - ta ? path.L - vv * (dur - tt) * (dur - tt) / (2 * ta) : vv * (tt - ta / 2);
   const [x, z] = at(path, s);
-  if (seg.crab) { const w = sm(s / (path.L || 1)); return { x, z, yaw: lerpA(from.a, to.a, w), pitch: from.pitch + (to.pitch - from.pitch) * w, fov: from.fov + (to.fov - from.fov) * w }; }
+  const mv = Math.min(1, Math.sqrt(Math.max(0, tt < ta ? vv * tt / ta : tt > dur - ta ? vv * (dur - tt) / ta : vv)) / 1.4);   // 0 saat diam, 1 saat berjalan
+  if (seg.crab) { const w = sm(s / (path.L || 1)); return { x, z, mv, yaw: lerpA(from.a, to.a, w), pitch: from.pitch + (to.pitch - from.pitch) * w, fov: from.fov + (to.fov - from.fov) * w }; }
   const head = headYaw(path, s);
   const w1 = sm(tt / (dur * .45)), w2 = sm((tt - dur * .55) / (dur * .45));      // berputar pelan di awal dan di akhir perjalanan (berdasarkan waktu)
   let yaw = lerpA(lerpA(from.a, head, w1), to.a, w2);
-  return { x, z, yaw, pitch: to.pitch * w2, fov: lerp(lerp(from.fov, P.baseFov, w1), to.fov, w2) };
+  return { x, z, mv, yaw, pitch: to.pitch * w2, fov: lerp(lerp(from.fov, P.baseFov, w1), to.fov, w2) };
 }
 
 // ---------- menjalankan tur ----------
-let run = null, fade = null;
+let run = null, fade = null, vig = null;
+function vignetteMesh() {                                      // bayangan lembut di tepi gambar (ikut terekam)
+  if (vig) return vig;
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'), gr = g.createRadialGradient(128, 128, 60, 128, 128, 182);
+  gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(.6, 'rgba(0,0,0,.18)'); gr.addColorStop(1, 'rgba(0,0,0,.62)'); g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+  vig = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false, depthWrite: false }));
+  vig.position.z = -.29; vig.renderOrder = 9998; vig.frustumCulled = false; scene.add(camera); camera.add(vig); return vig;
+}
 export const tourActive = () => !!run;
 export function togglePauseTour() {              // jeda / lanjutkan: waktu tur berhenti dan rekaman ikut dijeda (bagian jeda tidak masuk video)
   if (!run || run.stopping) return;
@@ -202,6 +227,7 @@ export function startTour(opts) {
   Object.assign(canvas.style, { width: '100vw', height: '100vh', objectFit: 'contain' }); document.body.style.background = '#000';
   document.body.classList.add('touring'); state.touring = true; if (document.pointerLockElement) document.exitPointerLock();
   fadeMesh().material.opacity = 1;
+  if (o.style === 'cine') { vignetteMesh().visible = true; fx.spot = 1.5; fx.lamp = 1.12; }
   $('tr-pause').textContent = 'Jeda [Spasi]'; $('tourbar').classList.remove('paused');
   run = { P, t: 0, paused: false, saved, rec: null, chunks: [], mime: '', stopping: false, shown: -1 };
   if (o.rec) {
@@ -226,7 +252,7 @@ export function stopTour(done = false) {          // done: selesai sampai akhir 
     sizeLock.fixed = false; renderer.setPixelRatio(s.pr); renderer.setSize(innerWidth, innerHeight);
     Object.assign(canvas.style, { objectFit: '' }); document.body.style.background = '';
     camera.aspect = innerWidth / innerHeight; camera.fov = s.fov; camera.updateProjectionMatrix();
-    if (fade) fade.material.opacity = 0;
+    if (fade) fade.material.opacity = 0; if (vig) vig.visible = false; fx.spot = 1; fx.lamp = 1; camera.rotation.z = 0;
     if (r.P.o.time !== 'keep') setTimeMode(s.time);
     document.body.classList.remove('touring'); state.touring = false; run = null;
     state.pitch = 0;
@@ -238,15 +264,18 @@ export function stopTour(done = false) {          // done: selesai sampai akhir 
 
 export const tourSeek = t => { if (run) run.t = t; };      // untuk pengujian otomatis
 export const tourPose = t => run && pose(run.P, t);
-export const tourInfo = () => run && { t: run.t, T: run.P.T, n: run.P.n, segs: run.P.segs.length };
+export const tourInfo = () => run && { t: run.t, T: run.P.T, n: run.P.n, segs: run.P.segs.length, dips: run.P.dips };
 export function tourUpdate(dt) {                  // dipanggil tiap frame dari loop utama
   if (!run) return;
   if (!run.paused) run.t += Math.min(dt, .1);
   const P = run.P, p = pose(P, Math.min(run.t, P.T));
   state.P.x = p.x; state.P.z = p.z; if (state.me) state.me.visible = false;
-  camera.position.set(p.x, CAM_Y, p.z); camera.rotation.set(p.pitch, p.yaw, 0);
+  camera.position.set(p.x, p.y || CAM_Y, p.z); camera.rotation.set(p.pitch, p.yaw, p.roll || 0);
   camera.aspect = P.aspect; camera.fov = p.fov; camera.updateProjectionMatrix();
-  const f = Math.max(0, 1 - run.t / .9), g = Math.max(0, 1 - (P.T - run.t) / .9); fadeMesh().material.opacity = Math.max(f, g);
+  const f = Math.max(0, 1 - run.t / .9), g = Math.max(0, 1 - (P.T - run.t) / .9); let dip = 0;
+  for (const d of P.dips) dip = Math.max(dip, sm(1 - Math.abs(run.t - d) / .45));                 // pudar singkat saat melewati pintu
+  fadeMesh().material.opacity = Math.max(f, g, dip);
+  if (vig) { const hh = Math.tan(p.fov * Math.PI / 360) * .29 * 2.04; vig.scale.set(hh * P.aspect, hh, 1); }
   const sec = Math.floor(run.t);
   if (sec !== run.shown) { run.shown = sec; $('tr-time').textContent = fmt(run.t) + ' / ' + fmt(P.T); }
   $('tr-bar').style.width = Math.min(100, run.t / P.T * 100) + '%';
@@ -277,7 +306,7 @@ function resetModal() {
 }
 const readOpts = () => ({
   size: $('tr-asp').value, dwell: +$('tr-dwell').value, speed: $('tr-speed').value, order: $('tr-order').value,
-  crab: $('tr-crab').checked, time: $('tr-time-sel').value, audio: $('tr-aud').checked, rec: $('tr-rec').checked,
+  crab: $('tr-crab').checked, style: $('tr-style').value, doorfade: $('tr-door').checked, time: $('tr-time-sel').value, audio: $('tr-aud').checked, rec: $('tr-rec').checked,
 });
 let infoTimer = 0;
 function info() {
@@ -296,7 +325,7 @@ export function openTour() {
   const m = $('tour'); if (!m.classList.contains('open')) { if (openModal()) return; resetModal(); toggleModal(m); } else toggleModal(m);
 }
 export function initTour() {
-  ['tr-asp', 'tr-dwell', 'tr-speed', 'tr-order', 'tr-crab'].forEach(id => $(id).addEventListener('change', info));
+  ['tr-asp', 'tr-dwell', 'tr-speed', 'tr-order', 'tr-crab', 'tr-style', 'tr-door'].forEach(id => $(id).addEventListener('change', info));
   $('tr-rec').addEventListener('change', () => { $('tr-aud').disabled = !$('tr-rec').checked; });
   $('tr-go').onclick = () => { const o = readOpts(); toggleModal($('tour')); setTimeout(() => startTour(o), 60); };
   $('tr-close').onclick = () => toggleModal($('tour')); $('tr-close2').onclick = () => { toggleModal($('tour')); };
