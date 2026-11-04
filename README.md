@@ -19,6 +19,7 @@ npm run dev
 | File | Isi |
 |---|---|
 | `src/config.js` | Tinggi ruangan, kecepatan, filter, gaya frame, judul bawaan |
+| `src/tour.js` | Tur otomatis: mencari rute lewat denah, menggerakkan kamera, merekam video |
 | `src/gallery.js` | Membangun museum 3D dari denah (dinding, pintu, lampu, bingkai, papan nama, lampu sorot) |
 | `src/avatar.js` | Bentuk karakter, daftar topi, animasi jalan |
 | `src/network.js` | Multiplayer (host + relay lewat PeerJS) |
@@ -143,3 +144,22 @@ Kalau host keluar, room berakhir. Pada mode lokal, foto dan edit hanya ada di br
 
 ## Lampu sorot
 Lampu sorot (bingkai dengan opsi "Lampu sorot" di denah) kini berupa berkas cahaya lembut tanpa tepi tegas, ditambah bercak terang di dinding tepat di atas lukisan. Terangnya mengikuti waktu: samar di siang hari, paling jelas di malam hari.
+
+## Tur otomatis (rekam video)
+Menu **Tur otomatis** (tombol **U**) membuat kamera berjalan sendiri melewati semua bingkai, lalu videonya bisa diunduh.
+- Pilih bentuk video: landscape (1280×720 atau 1920×1080) atau potret (720×1280 atau 1080×1920). Pratinjau di layar sudah sesuai bentuk video.
+- Rute dicari dari denah (tidak menembus dinding, memutar lewat pintu), lalu urutan bingkai dirapikan supaya jalannya paling singkat. Bisa juga diurutkan sesuai nomor bingkai.
+- Kamera berhenti di depan tiap bingkai dengan sudut pandang yang menyesuaikan jarak dan bentuk bingkai (mendatar atau tegak), perlahan mendekat, dan memudar hitam di awal dan akhir.
+- Opsi **geser menyamping**: antar bingkai yang berdekatan dan searah, kamera tetap menghadap dinding dan hanya bergeser (seperti kepiting), tidak berputar. Berputar hanya kalau arah bingkai berikutnya berbeda jauh.
+- Bisa memilih lama berhenti (mulai 1 detik), kecepatan berjalan, waktu di luar jendela (pagi sampai malam), dan menyertakan musik/suara ruangan.
+- Perekaman memakai MediaRecorder di browser: hasilnya MP4 bila browser mendukung, kalau tidak WebM. Tur berjalan secara real time, jadi tab harus tetap terbuka. **Spasi** (atau tombol **Jeda**) menjeda tur dan rekaman, bagian yang dijeda tidak masuk ke video. **Esc** menghentikan tur dan video sampai saat itu tetap bisa diunduh.
+
+## Bingkai di dinding melengkung
+Di ruangan lingkaran atau elips, bingkai otomatis dimajukan sedikit dari dinding (hingga sekitar 12 cm) supaya ujung sampingnya tidak tembus dinding. Dinding lurus tidak berubah.
+
+## Ekspor / impor denah
+Di editor denah (**L**) ada tombol **Ekspor** (mengunduh `layout.json`) dan **Impor** (memuat file `layout.json`). Impor hanya memuat ke editor dan bisa diurungkan; denah baru dipakai dan tersimpan setelah menekan **Simpan & terapkan**. Foto di bingkai dengan nomor yang sama ikut muncul di bingkai hasil impor.
+
+## Ruangan lengkung dan memindahkan bingkai di denah
+- Di ruangan lingkaran, elips, dan setengah lingkaran, bingkai dan jendela menempel mengikuti sudut, bukan grid lurus. Titiknya dibagi rata dan selalu ada titik di tengah, jadi letaknya simetris. Bingkai menghadap tepat ke tengah ruangan.
+- Alat **Pilih**: seret bingkai atau jendela untuk memindahkannya ke tempat lain di dinding (juga ke ruangan lain). Bisa diurungkan dengan Ctrl+Z.

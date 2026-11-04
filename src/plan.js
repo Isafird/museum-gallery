@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { analyze, shapePoly, snapToWall, frameOnWall, windowOnWall, MAX_WINDOWS, WIN_W, floorArea, inFloor, pip, segD, doorPoly, MAX_FRAMES, MAX_LIGHTS, FRAME_W, DOOR_W } from './layout.js';
+import { analyze, normalizeLayout, shapePoly, snapToWall, frameOnWall, windowOnWall, MAX_WINDOWS, WIN_W, floorArea, inFloor, pip, segD, doorPoly, MAX_FRAMES, MAX_LIGHTS, FRAME_W, DOOR_W } from './layout.js';
 import { toggleModal } from './modal.js';
 import { toast } from './toast.js';
 import { commitLayout } from './world.js';
@@ -10,7 +10,7 @@ const TOOLS = [['pan', 'Geser'], ['sel', 'Pilih'], ['rect', 'Kotak'], ['circle',
   ['ell', 'Bentuk L'], ['tee', 'Bentuk T'], ['plus', 'Plus'], ['poly', 'Bebas'], ['wall', 'Dinding'], ['door', 'Pintu'], ['window', 'Jendela'], ['frame', 'Bingkai'], ['light', 'Lampu'], ['del', 'Hapus']];
 const HINT = {
   pan: 'Seret untuk menggeser. Roda mouse untuk zoom.',
-  sel: 'Klik objek untuk memilih. Ctrl+C salin, Ctrl+V tempel di kursor, Ctrl+D duplikat. Seret untuk memindahkan. Tarik kotak kecil di tepi ruangan untuk mengubah ukuran. R memutar, Delete menghapus.',
+  sel: 'Klik objek untuk memilih. Seret bingkai atau jendela untuk menggesernya di dinding. Ctrl+C salin, Ctrl+V tempel di kursor, Ctrl+D duplikat. Seret untuk memindahkan. Tarik kotak kecil di tepi ruangan untuk mengubah ukuran. R memutar, Delete menghapus.',
   poly: 'Klik titik-titik sudut. Klik titik awal atau tekan Enter untuk menutup.',
   wall: 'Seret untuk membuat dinding pembatas.', frame: 'Arahkan ke dinding lalu klik untuk menaruh bingkai.',
   door: 'Arahkan ke dinding lalu klik untuk membuat pintu. Pintu juga menyambung dua ruangan yang hanya bersentuhan.',
@@ -308,6 +308,7 @@ cv.onpointerdown = e => {
     if (hh) { drag = { kind: 'resize', h: hh.h, b0: hh.b, semi: hh.semi, snap: JSON.stringify(work), sel, att: attachedTo(sel), moved: false, last: '' }; return; }
     sel = hit(p); renderProps();
     if (sel && ['shape', 'div', 'light'].includes(sel.t)) drag = { q0: q, snap: JSON.stringify(work), sel, att: attachedTo(sel), moved: false };
+    else if (sel && (sel.t === 'frame' || sel.t === 'window')) drag = { kind: 'wallobj', snap: JSON.stringify(work), sel, moved: false };     // bingkai / jendela: seret ke tempat lain di dinding
     draw(); return;
   }
   if (tool === 'poly') {
@@ -332,6 +333,14 @@ cv.onpointermove = e => {
   if (drag && drag.kind === 'resize') {
     const nb = resizedBox(drag, hov), key = [nb.x0, nb.z0, nb.x1, nb.z1].join();
     if (key !== drag.last) { drag.last = key; drag.moved = true; work = JSON.parse(drag.snap); applyResize(work, drag, nb); m = analyze(work); }
+  } else if (drag && drag.kind === 'wallobj') {
+    const fr = drag.sel.t === 'frame', arr = fr ? 'frames' : 'windows', w = JSON.parse(drag.snap), o = w[arr][drag.sel.i];
+    const sp = snapToWall(m, raw[0], raw[1], .5, fr ? undefined : WIN_W / 2 + .1);
+    if (sp) {
+      const c = { ...o, x: sp.x, z: sp.z, a: sp.a };
+      const near = w[arr].some((q, j) => j !== drag.sel.i && Math.hypot(q.x - c.x, q.z - c.z) < (fr ? FRAME_W * .9 : WIN_W + .1) && (fr ? Math.cos(q.a - c.a) > .5 : Math.abs(Math.sin(q.a - c.a)) < .05));
+      if ((fr ? frameOnWall(c, m) : windowOnWall(c, m)) && !near) { Object.assign(o, { x: c.x, z: c.z, a: c.a }); work = w; drag.moved = true; }
+    }
   } else if (drag) {
     const dx = hov[0] - drag.q0[0], dz = hov[1] - drag.q0[1];
     if ((dx || dz) && (dx !== drag.lx || dz !== drag.lz)) { drag.lx = dx; drag.lz = dz; drag.moved = true; work = JSON.parse(drag.snap); applyMove(work, drag.sel, drag.att, dx, dz); m = analyze(work); }
@@ -428,6 +437,22 @@ $('pgrid').onchange = e => { grid = +e.target.value; e.target.blur(); draw(); };
 $('pmir').onchange = e => { mir = +e.target.value; e.target.blur(); };
 $('prot').onclick = e => { rotateAction(); e.currentTarget.blur(); };
 $('pundo').onclick = e => { undo(); e.currentTarget.blur(); };
+// Ekspor / impor denah sebagai file layout.json. Impor hanya memuat ke editor (bisa diurungkan); baru tersimpan setelah "Simpan & terapkan".
+$('pexp').onclick = e => {
+  e.currentTarget.blur(); const blob = new Blob([JSON.stringify(work)], { type: 'application/json' }), a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'layout.json'; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+};
+$('pimp').onclick = e => { e.currentTarget.blur(); $('pimpf').value = ''; $('pimpf').click(); };
+$('pimpf').onchange = async () => {
+  const f = $('pimpf').files[0]; if (!f) return;
+  try {
+    const raw = JSON.parse(await f.text()); if (!raw || !Array.isArray(raw.shapes) || !raw.shapes.length) throw new Error('bukan file denah');
+    const next = normalizeLayout(raw); next.doors = next.doors || []; next.windows = next.windows || [];
+    commit(() => { work = JSON.parse(JSON.stringify(next)); sel = null; drag = null; });
+    if (!work.lights) work.lights = analyze(work).lights.map(l => ({ ...l }));
+    fit(); reanalyze(); draw(); toast('Denah dimuat. Tekan "Simpan & terapkan" untuk memakainya');
+  } catch (err) { toast('File denah tidak bisa dibaca: ' + (err.message || err)); }
+};
 $('pcancel').onclick = () => planKey({ code: 'Escape' });
 $('psave').onclick = async () => {
   const mm = analyze(work); if (!mm.walls.length) { toast('Gambar minimal satu ruangan'); return; }

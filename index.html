@@ -94,6 +94,7 @@
     <button id="timebtn">Waktu: Otomatis [J]</button>
     <button id="musbtn">Musik: nyala [N]</button>
     <button id="sfxbtn">Suara ruangan: nyala [K]</button>
+    <button id="tourbtn">Tur otomatis [U]</button>
     <button id="helpbtn">Bantuan [H]</button>
     <button id="plnbtn">Denah [L]</button>
     <button id="addfrbtn" title="Bidik dinding lalu pasang bingkai mendatar">+ Bingkai [G]</button>
@@ -141,6 +142,29 @@
   <input id="pick" type="file" accept="image/*,video/*,.heic,.heif,.avif" hidden>
 </div>
 
+<div id="tourbar" role="status"><span class="dotrec"></span><b>Merekam</b><span id="tr-time">0:00</span><i><u id="tr-bar"></u></i><button id="tr-pause" type="button">Jeda [Spasi]</button><button id="tr-stop" type="button">Hentikan [Esc]</button></div>
+<div id="tour" class="modal"><div class="hbox">
+  <h2>Tur otomatis</h2>
+  <div id="tourset">
+    <p class="s">Kamera berjalan sendiri melewati semua bingkai mengikuti denah museum, lalu videonya bisa kamu unduh.</p>
+    <label>Bentuk video<select id="tr-asp"><option value="1280x720">Landscape 16:9 (1280×720)</option><option value="1920x1080">Landscape Full HD (1920×1080)</option><option value="720x1280">Potret 9:16 (720×1280)</option><option value="1080x1920">Potret Full HD (1080×1920)</option></select></label>
+    <label>Lama berhenti di tiap bingkai<select id="tr-dwell"><option value="1">1 detik</option><option value="2.5">2,5 detik</option><option value="3.5" selected>3,5 detik</option><option value="5">5 detik</option><option value="7">7 detik</option></select></label>
+    <label>Kecepatan berjalan<select id="tr-speed"><option value="santai">Santai</option><option value="normal" selected>Normal</option><option value="cepat">Cepat</option></select></label>
+    <label>Urutan bingkai<select id="tr-order"><option value="auto">Otomatis (rute paling singkat)</option><option value="id">Sesuai nomor bingkai</option></select></label>
+    <label>Waktu di luar jendela<select id="tr-time-sel"><option value="keep">Seperti sekarang</option><option value="pagi">Pagi</option><option value="siang">Siang</option><option value="sore">Sore</option><option value="malam">Malam</option></select></label>
+    <label class="chk"><input type="checkbox" id="tr-crab" checked> Bingkai berdekatan: geser menyamping, kamera tidak berputar</label>
+    <label class="chk"><input type="checkbox" id="tr-rec" checked> Rekam jadi video</label>
+    <label class="chk"><input type="checkbox" id="tr-aud" checked> Sertakan musik dan suara ruangan</label>
+    <p id="tr-info" class="s"></p>
+    <div class="trow"><button id="tr-go" class="chip primary" type="button">Mulai tur</button><button id="tr-close" class="chip" type="button">Tutup</button></div>
+  </div>
+  <div id="tourdone" style="display:none">
+    <video id="tr-vid" controls playsinline></video>
+    <p id="tr-note" class="s"></p>
+    <div class="trow"><a id="tr-dl" class="chip primary" download>Unduh video</a><button id="tr-again" class="chip" type="button">Atur ulang</button><button id="tr-close2" class="chip" type="button">Tutup</button></div>
+  </div>
+</div></div>
+
 <div id="help" class="modal"><div class="hbox">
   <h2>Shortcut</h2>
   <div class="grid">
@@ -155,6 +179,7 @@
     <kbd>Tahan klik</kbd><span>Tahan klik (atau sentuh lama) pada bingkai lalu arahkan ke tempat lain di dinding untuk menggesernya. Lepas untuk menaruh. Hanya pemilik</span>
     <kbd>1 - 7</kbd><span>Emote langsung: melambai, tepuk tangan, cinta, tertawa, kaget, jempol, menari. Terlihat oleh pemain lain (B membuka panelnya)</span>
     <kbd>J</kbd><span>Ganti waktu: otomatis (ikut jam HP), pagi, siang, sore, malam. Langit di luar jendela ikut berubah</span>
+    <kbd>U</kbd><span>Tur otomatis: kamera berjalan sendiri melewati semua bingkai dan bisa direkam jadi video potret atau landscape</span>
     <kbd>N</kbd><span>Musik latar nyala / mati (nadanya berbeda tiap room)</span>
     <kbd>K</kbd><span>Suara ruangan nyala / mati (langkah kaki, gema, burung dan jangkrik di luar)</span>
     <kbd>O</kbd><span>Foto layar tampilan 3D (diunduh sebagai gambar)</span>
@@ -188,6 +213,9 @@
     <label>Simetri <select id="pmir"><option value="0">Tidak</option><option value="1">Kiri-kanan</option><option value="2">Atas-bawah</option><option value="3">Keduanya</option></select></label>
     <button id="prot" class="tool">Putar <kbd>R</kbd></button>
     <button id="pundo" class="tool">Urungkan <kbd>Ctrl+Z</kbd></button>
+    <button id="pexp" class="tool" title="Unduh denah ini sebagai file layout.json">Ekspor</button>
+    <button id="pimp" class="tool" title="Muat denah dari file layout.json">Impor</button>
+    <input id="pimpf" type="file" accept=".json,application/json" hidden>
     <button id="psave" class="chip primary">Simpan &amp; terapkan</button>
     <button id="pcancel" class="tool">Tutup <kbd>Esc</kbd></button>
   </div>

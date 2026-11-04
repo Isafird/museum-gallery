@@ -33,6 +33,12 @@ function ensure() {
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   startHum(); return ctx;
 }
+let recDest = null;
+export function audioStream() {                 // suara untuk ikut direkam ke video (tur otomatis)
+  const c = ensure(); if (!c) return null;
+  if (!recDest) { recDest = c.createMediaStreamDestination(); gate.connect(recDest); }
+  return recDest.stream;
+}
 export function startAudio() {
   const c = ensure(); if (!c) return;
   if (c.state === 'suspended') c.resume();
