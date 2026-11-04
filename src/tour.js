@@ -14,7 +14,7 @@ const $ = id => document.getElementById(id);
 const CELL = .5, CAM_Y = 1.6, LOOK_Y = 1.85, STAND_D = 3.4, MIN_D = 1.4;
 const sm = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
 const wrap = a => { a = (a + Math.PI) % (Math.PI * 2); if (a < 0) a += Math.PI * 2; return a - Math.PI; };
-const lerpA = (a, b, w) => a + wrap(b - a) * w;
+const lerpA = (a, b, w) => a + wrap(b - a) * w, lerp = (a, b, w) => a + (b - a) * w;
 
 // ---------- peta kotak untuk mencari jalan ----------
 let cache = null;
@@ -160,8 +160,8 @@ function pose(P, t) {       // posisi dan arah kamera pada detik ke-t
   let seg = P.segs[P.segs.length - 1]; for (const s of P.segs) if (t < s.t0 + s.dur) { seg = s; break; }
   const u = t - seg.t0;
   if (seg.k === 'stay') {
-    const w = sm(u / seg.dur), s = seg.s, nx = Math.sin(s.a), nz = Math.cos(s.a), side = Math.sin(t * .6) * .07 * Math.min(1, u / 1.2);
-    return { x: s.x - nx * seg.dolly * w + nz * side, z: s.z - nz * seg.dolly * w - nx * side, yaw: s.a + Math.sin(t * .5) * .012, pitch: seg.pitch, fov: seg.fov - w * 1.5 };
+    const s = seg.s, nx = Math.sin(s.a), nz = Math.cos(s.a), side = Math.sin(t * .6) * .07 * Math.min(1, u / 1.2);
+    return { x: s.x + nz * side, z: s.z - nx * side, yaw: s.a + Math.sin(t * .5) * .012, pitch: seg.pitch, fov: seg.fov };      // diam di tempat (hanya goyangan halus): mendekat ke bingkai cukup sekali, saat berjalan
   }
   const { path, ta, dur, from, to } = seg, vv = path.L / (dur - ta), tt = Math.min(u, dur);
   const s = tt < ta ? vv * tt * tt / (2 * ta) : tt > dur - ta ? path.L - vv * (dur - tt) * (dur - tt) / (2 * ta) : vv * (tt - ta / 2);
@@ -170,12 +170,18 @@ function pose(P, t) {       // posisi dan arah kamera pada detik ke-t
   const head = headYaw(path, s);
   const w1 = sm(tt / (dur * .45)), w2 = sm((tt - dur * .55) / (dur * .45));      // berputar pelan di awal dan di akhir perjalanan (berdasarkan waktu)
   let yaw = lerpA(lerpA(from.a, head, w1), to.a, w2);
-  return { x, z, yaw, pitch: to.pitch * w2, fov: lerpA(lerpA(from.fov, P.baseFov, w1), to.fov, w2) };
+  return { x, z, yaw, pitch: to.pitch * w2, fov: lerp(lerp(from.fov, P.baseFov, w1), to.fov, w2) };
 }
 
 // ---------- menjalankan tur ----------
 let run = null, fade = null;
 export const tourActive = () => !!run;
+export function togglePauseTour() {              // jeda / lanjutkan: waktu tur berhenti dan rekaman ikut dijeda (bagian jeda tidak masuk video)
+  if (!run || run.stopping) return;
+  run.paused = !run.paused;
+  try { if (run.rec) { if (run.paused && run.rec.state === 'recording') run.rec.pause(); else if (!run.paused && run.rec.state === 'paused') run.rec.resume(); } } catch (e) {}
+  $('tr-pause').textContent = run.paused ? 'Lanjut [Spasi]' : 'Jeda [Spasi]'; $('tourbar').classList.toggle('paused', run.paused);
+}
 function fadeMesh() {
   if (fade) return fade;
   fade = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 1, depthTest: false, depthWrite: false }));
@@ -196,7 +202,8 @@ export function startTour(opts) {
   Object.assign(canvas.style, { width: '100vw', height: '100vh', objectFit: 'contain' }); document.body.style.background = '#000';
   document.body.classList.add('touring'); state.touring = true; if (document.pointerLockElement) document.exitPointerLock();
   fadeMesh().material.opacity = 1;
-  run = { P, t: 0, saved, rec: null, chunks: [], mime: '', stopping: false, shown: -1 };
+  $('tr-pause').textContent = 'Jeda [Spasi]'; $('tourbar').classList.remove('paused');
+  run = { P, t: 0, paused: false, saved, rec: null, chunks: [], mime: '', stopping: false, shown: -1 };
   if (o.rec) {
     try {
       const mime = pickMime(); if (!mime) throw new Error('Browser tidak mendukung perekaman video');
@@ -234,7 +241,7 @@ export const tourPose = t => run && pose(run.P, t);
 export const tourInfo = () => run && { t: run.t, T: run.P.T, n: run.P.n, segs: run.P.segs.length };
 export function tourUpdate(dt) {                  // dipanggil tiap frame dari loop utama
   if (!run) return;
-  run.t += Math.min(dt, .1);
+  if (!run.paused) run.t += Math.min(dt, .1);
   const P = run.P, p = pose(P, Math.min(run.t, P.T));
   state.P.x = p.x; state.P.z = p.z; if (state.me) state.me.visible = false;
   camera.position.set(p.x, CAM_Y, p.z); camera.rotation.set(p.pitch, p.yaw, 0);
@@ -294,6 +301,6 @@ export function initTour() {
   $('tr-go').onclick = () => { const o = readOpts(); toggleModal($('tour')); setTimeout(() => startTour(o), 60); };
   $('tr-close').onclick = () => toggleModal($('tour')); $('tr-close2').onclick = () => { toggleModal($('tour')); };
   $('tr-again').onclick = resetModal;
-  $('tr-stop').onclick = () => stopTour(false);
+  $('tr-stop').onclick = () => stopTour(false); $('tr-pause').onclick = e => { togglePauseTour(); e.currentTarget.blur(); };
   $('tourbtn').onclick = e => { openTour(); e.currentTarget.blur(); };
 }

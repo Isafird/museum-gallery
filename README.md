@@ -152,7 +152,7 @@ Menu **Tur otomatis** (tombol **U**) membuat kamera berjalan sendiri melewati se
 - Kamera berhenti di depan tiap bingkai dengan sudut pandang yang menyesuaikan jarak dan bentuk bingkai (mendatar atau tegak), perlahan mendekat, dan memudar hitam di awal dan akhir.
 - Opsi **geser menyamping**: antar bingkai yang berdekatan dan searah, kamera tetap menghadap dinding dan hanya bergeser (seperti kepiting), tidak berputar. Berputar hanya kalau arah bingkai berikutnya berbeda jauh.
 - Bisa memilih lama berhenti (mulai 1 detik), kecepatan berjalan, waktu di luar jendela (pagi sampai malam), dan menyertakan musik/suara ruangan.
-- Perekaman memakai MediaRecorder di browser: hasilnya MP4 bila browser mendukung, kalau tidak WebM. Tur berjalan secara real time, jadi tab harus tetap terbuka. **Esc** menghentikan tur dan video sampai saat itu tetap bisa diunduh.
+- Perekaman memakai MediaRecorder di browser: hasilnya MP4 bila browser mendukung, kalau tidak WebM. Tur berjalan secara real time, jadi tab harus tetap terbuka. **Spasi** (atau tombol **Jeda**) menjeda tur dan rekaman, bagian yang dijeda tidak masuk ke video. **Esc** menghentikan tur dan video sampai saat itu tetap bisa diunduh.
 
 ## Bingkai di dinding melengkung
 Di ruangan lingkaran atau elips, bingkai otomatis dimajukan sedikit dari dinding (hingga sekitar 12 cm) supaya ujung sampingnya tidak tembus dinding. Dinding lurus tidak berubah.

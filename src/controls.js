@@ -14,7 +14,7 @@ import { toggleMusic, toggleSfx } from './audio.js';
 import { cycleTime, syncAudioBtns } from './ui.js';
 import { placeFrameFromView, removeFrameAimed, beginFrameDrag, endFrameDrag, isDraggingFrame } from './world.js';
 import { takeShot } from './download.js';
-import { openTour, tourActive, stopTour } from './tour.js';
+import { openTour, tourActive, stopTour, togglePauseTour } from './tour.js';
 
 export const keys = {};            // tombol yang sedang ditekan
 export const mv = { x: 0, y: 0 };  // joystick sentuh (-1..1)
@@ -28,7 +28,7 @@ const canvas = renderer.domElement;
 // ---- Keyboard (daftar shortcut ada di bantuan [H] dan README) ----
 addEventListener('keydown', e => {
   if (!state.active) return;
-  if (tourActive()) { if (e.code === 'Escape') stopTour(false); e.preventDefault(); return; }       // saat tur otomatis hanya Esc yang berlaku
+  if (tourActive()) { if (e.code === 'Escape') stopTour(false); else if (e.code === 'Space') togglePauseTour(); e.preventDefault(); return; }       // saat tur otomatis hanya Esc yang berlaku
   if ((e.ctrlKey || e.metaKey) && e.code === 'KeyS') { e.preventDefault(); if (document.activeElement) document.activeElement.blur(); saveAll(); return; }   // Ctrl+S: simpan semua
   if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) {          // sedang mengetik
     if (e.code === 'Escape' || (e.code === 'Enter' && e.target.id === 'ttl')) e.target.blur();

@@ -194,3 +194,5 @@ h1{font-family:var(--serif);font-weight:620;font-optical-sizing:auto;letter-spac
 @keyframes trblink{50%{opacity:.25}}
 body.touring #tourbar{display:flex}
 body.touring #bar,body.touring #tl,body.touring #dot,body.touring #hint,body.touring #toast,body.touring #chat,body.touring #emotes,body.touring #touch,body.touring #charfab{display:none!important}
+#tourbar.paused .dotrec{animation:none;background:var(--mut)}
+#tourbar.paused b::after{content:" (dijeda)";font-weight:400;color:var(--mut)}
