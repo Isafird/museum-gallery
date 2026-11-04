@@ -168,4 +168,4 @@ Di editor denah (**L**) ada tombol **Ekspor** (mengunduh `layout.json`) dan **Im
 - Alat **Pilih**: seret bingkai atau jendela untuk memindahkannya ke tempat lain di dinding (juga ke ruangan lain). Bisa diurungkan dengan Ctrl+Z.
 
 ## Pratinjau karakter
-Layar **Edit karakter** punya panggung pratinjau sendiri (latar polos, pencahayaan studio, bisa diputar dengan menyeretnya), jadi karakter selalu jelas terlihat dengan warna aslinya, tidak bergantung pada pemandangan museum di belakangnya. Di HP potret panggung berada di atas panel, di layar lebar di kanan panel.
+Layar **Edit karakter** punya panggung pratinjau sendiri (latar polos abu-cokelat, pencahayaan merata dari segala arah, bisa diputar dengan menyeretnya), jadi karakter selalu jelas terlihat dengan warna aslinya, tidak bergantung pada pemandangan museum di belakangnya. Di HP potret panggung berada di atas panel, di layar lebar di kanan panel.

@@ -35,10 +35,11 @@ function rebuildMe() { if (me) { scene.remove(me); disposeAvatar(me); } me = mak
 
 // ---- Pratinjau karakter di layar edit: panggung sendiri (latar polos, tiga lampu, bisa diputar dengan menyeret) supaya selalu jelas terlihat ----
 const pvScene = new THREE.Scene(), pvCam = new THREE.PerspectiveCamera(30, 1, .1, 50);
-pvScene.add(new THREE.HemisphereLight(0xfff4e0, 0x6a5848, .55));
-const pvKey = new THREE.DirectionalLight(0xffffff, .9); pvKey.position.set(2.5, 3.5, 3.5); pvScene.add(pvKey);
-const pvRim = new THREE.DirectionalLight(0xffc98a, .55); pvRim.position.set(-3, 2.5, -3); pvScene.add(pvRim);
-const pvFloor = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.25, .08, 48), new THREE.MeshLambertMaterial({ color: 0x3a2c20 })); pvFloor.position.y = -.04; pvScene.add(pvFloor);
+pvScene.add(new THREE.AmbientLight(0xffffff, .75));                  // terang dari segala arah supaya sisi mana pun yang menghadap kamera tetap jelas
+pvScene.add(new THREE.HemisphereLight(0xfff4e0, 0x8a7560, .35));
+const pvKey = new THREE.DirectionalLight(0xffffff, .55); pvKey.position.set(2.5, 3.5, 3.5); pvScene.add(pvKey);
+const pvRim = new THREE.DirectionalLight(0xffffff, .5); pvRim.position.set(-2.5, 3, -3.5); pvScene.add(pvRim);
+const pvFloor = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.25, .08, 48), new THREE.MeshLambertMaterial({ color: 0x9a8268 })); pvFloor.position.y = -.04; pvScene.add(pvFloor);
 let pv = null, pvYaw = 0, pvDrag = null, stageOK = false;
 function rebuildPreview() { if (pv) { pvScene.remove(pv); disposeAvatar(pv); } pv = makeAvatar(state.look); pvScene.add(pv); }
 const stageEl = document.getElementById('charstage');
@@ -59,11 +60,11 @@ function renderPreview(dt) {
   if (!stageOK || !pv) return;
   const r = stageEl.getBoundingClientRect(), w = Math.max(1, r.width), h = Math.max(1, r.height); if (!pvDrag) pvYaw += dt * .6;
   pv.rotation.y = pvYaw; animateAvatar(pv, 0, clock.elapsedTime);
-  const asp = w / h, d = Math.max(1.35 / Math.tan(15 * Math.PI / 180), 1.15 / (Math.tan(15 * Math.PI / 180) * asp));
+  const asp = w / h, d = Math.max(1.22 / Math.tan(15 * Math.PI / 180), 1.15 / (Math.tan(15 * Math.PI / 180) * asp));
   pvCam.aspect = asp; pvCam.updateProjectionMatrix(); pvCam.position.set(0, 1.2, d); pvCam.lookAt(0, .98, 0);
   const cc = new THREE.Color(); renderer.getClearColor(cc); const ca = renderer.getClearAlpha();
   renderer.setScissorTest(true); renderer.setViewport(r.left, innerHeight - r.bottom, w, h); renderer.setScissor(r.left, innerHeight - r.bottom, w, h);
-  renderer.setClearColor(0x2b2119, 1); renderer.clear(); renderer.render(pvScene, pvCam);
+  renderer.setClearColor(0x5b4d41, 1); renderer.clear(); renderer.render(pvScene, pvCam);
   renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight); renderer.setClearColor(cc, ca);
 }
 applyLayout(defaultLayout());          // denah bawaan dulu, denah tersimpan dimuat sesudahnya
