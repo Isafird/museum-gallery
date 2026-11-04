@@ -31,7 +31,41 @@ const JUMP_V = 5.6, GRAV = 16;   // loncat setinggi ±1 m
 const { P } = state;
 let me = null;   // karakter milik sendiri
 
-function rebuildMe() { if (me) { scene.remove(me); disposeAvatar(me); } me = makeAvatar(state.look); scene.add(me); state.me = me; }
+function rebuildMe() { if (me) { scene.remove(me); disposeAvatar(me); } me = makeAvatar(state.look); scene.add(me); state.me = me; rebuildPreview(); }
+
+// ---- Pratinjau karakter di layar edit: panggung sendiri (latar polos, tiga lampu, bisa diputar dengan menyeret) supaya selalu jelas terlihat ----
+const pvScene = new THREE.Scene(), pvCam = new THREE.PerspectiveCamera(30, 1, .1, 50);
+pvScene.add(new THREE.HemisphereLight(0xfff4e0, 0x6a5848, .55));
+const pvKey = new THREE.DirectionalLight(0xffffff, .9); pvKey.position.set(2.5, 3.5, 3.5); pvScene.add(pvKey);
+const pvRim = new THREE.DirectionalLight(0xffc98a, .55); pvRim.position.set(-3, 2.5, -3); pvScene.add(pvRim);
+const pvFloor = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.25, .08, 48), new THREE.MeshLambertMaterial({ color: 0x3a2c20 })); pvFloor.position.y = -.04; pvScene.add(pvFloor);
+let pv = null, pvYaw = 0, pvDrag = null, stageOK = false;
+function rebuildPreview() { if (pv) { pvScene.remove(pv); disposeAvatar(pv); } pv = makeAvatar(state.look); pvScene.add(pv); }
+const stageEl = document.getElementById('charstage');
+stageEl.addEventListener('pointerdown', e => { stageEl.setPointerCapture(e.pointerId); pvDrag = { x: e.clientX, yaw: pvYaw }; });
+stageEl.addEventListener('pointermove', e => { if (pvDrag) pvYaw = pvDrag.yaw + (e.clientX - pvDrag.x) * .012; });
+['pointerup', 'pointercancel'].forEach(n => stageEl.addEventListener(n, () => { pvDrag = null; }));
+function layoutStage() {                                         // letakkan panggung di area yang tidak tertutup panel
+  const editing = !state.active && document.body.classList.contains('charopen'); stageOK = false;
+  if (editing) {
+    const pr = document.getElementById('charpanel').getBoundingClientRect(), W = innerWidth, Hh = innerHeight, g = 14; let l, t, r, b;
+    if (W - pr.right - g * 2 >= 200) { l = pr.right + g; r = W - g; t = Hh * .1; b = Hh * .9; }          // di kanan panel
+    else if (pr.top - g * 2 >= 110) { l = g; r = W - g; t = g; b = pr.top - g; }                          // di atas panel (HP potret)
+    if (l !== undefined) { stageOK = true; Object.assign(stageEl.style, { display: 'block', left: l + 'px', top: t + 'px', width: r - l + 'px', height: b - t + 'px' }); }
+  }
+  if (!stageOK) stageEl.style.display = 'none';
+}
+function renderPreview(dt) {
+  if (!stageOK || !pv) return;
+  const r = stageEl.getBoundingClientRect(), w = Math.max(1, r.width), h = Math.max(1, r.height); if (!pvDrag) pvYaw += dt * .6;
+  pv.rotation.y = pvYaw; animateAvatar(pv, 0, clock.elapsedTime);
+  const asp = w / h, d = Math.max(1.35 / Math.tan(15 * Math.PI / 180), 1.15 / (Math.tan(15 * Math.PI / 180) * asp));
+  pvCam.aspect = asp; pvCam.updateProjectionMatrix(); pvCam.position.set(0, 1.2, d); pvCam.lookAt(0, .98, 0);
+  const cc = new THREE.Color(); renderer.getClearColor(cc); const ca = renderer.getClearAlpha();
+  renderer.setScissorTest(true); renderer.setViewport(r.left, innerHeight - r.bottom, w, h); renderer.setScissor(r.left, innerHeight - r.bottom, w, h);
+  renderer.setClearColor(0x2b2119, 1); renderer.clear(); renderer.render(pvScene, pvCam);
+  renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight); renderer.setClearColor(cc, ca);
+}
 applyLayout(defaultLayout());          // denah bawaan dulu, denah tersimpan dimuat sesudahnya
 rebuildMe();
 initUI({
@@ -83,7 +117,7 @@ const stageLight = new THREE.PointLight(0xfff1dc, 1.6, 9, 1.6); stageLight.visib
 function placeCamera(t) {
   const { yaw, pitch } = state;
   if (!state.active) {                 // layar awal: kamera memandang karakter
-    me.visible = true; me.rotation.y = t * .7;
+    me.visible = !stageOK; me.rotation.y = t * .7;
     const wide = innerWidth > 700, editing = document.body.classList.contains('charopen');
     camera.position.set(P.x, 1.3, P.z - (editing ? (wide ? 3.0 : 2.6) : 3)); camera.lookAt(P.x, editing ? .85 : 1.0, P.z);
     stageLight.visible = true; stageLight.position.set(P.x + 1.2, 2.4, P.z - 2.4);
@@ -136,6 +170,7 @@ function loop() {
   if (state.active && !touring) jumpStep(dt);
   updateAudio(dt, state.active, amt, P.y > 0, P.x, P.z);
   me.position.set(P.x, P.y, P.z); animateAvatar(me, P.y > 0 ? .25 : amt, t); tickBubble(me);
+  layoutStage();
   if (touring) tourUpdate(dt); else placeCamera(t);
   updateOthers(dt, t); updateDaytime(dt); updateLamps(dt, P.x, P.z); updateFrameDrag(); updateVideos(camera); autoQuality(performance.now());
 
@@ -147,5 +182,6 @@ function loop() {
   }
   setHint();
   renderer.render(scene, camera);
+  renderPreview(dt);
 }
 loop();

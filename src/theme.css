@@ -196,3 +196,8 @@ body.touring #tourbar{display:flex}
 body.touring #bar,body.touring #tl,body.touring #dot,body.touring #hint,body.touring #toast,body.touring #chat,body.touring #emotes,body.touring #touch,body.touring #charfab{display:none!important}
 #tourbar.paused .dotrec{animation:none;background:var(--mut)}
 #tourbar.paused b::after{content:" (dijeda)";font-weight:400;color:var(--mut)}
+
+/* ---------- pratinjau karakter ---------- */
+#charstage{position:fixed;display:none;z-index:6;border-radius:14px;box-shadow:var(--frame),0 20px 60px rgba(0,0,0,.45);cursor:grab;touch-action:none}
+#charstage:active{cursor:grabbing}
+#charstage span{position:absolute;left:0;right:0;bottom:10px;text-align:center;font-size:12px;color:var(--mut);letter-spacing:.02em;pointer-events:none}

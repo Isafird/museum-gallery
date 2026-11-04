@@ -166,3 +166,6 @@ Di editor denah (**L**) ada tombol **Ekspor** (mengunduh `layout.json`) dan **Im
 ## Ruangan lengkung dan memindahkan bingkai di denah
 - Di ruangan lingkaran, elips, dan setengah lingkaran, bingkai dan jendela menempel mengikuti sudut, bukan grid lurus. Titiknya dibagi rata dan selalu ada titik di tengah, jadi letaknya simetris. Bingkai menghadap tepat ke tengah ruangan.
 - Alat **Pilih**: seret bingkai atau jendela untuk memindahkannya ke tempat lain di dinding (juga ke ruangan lain). Bisa diurungkan dengan Ctrl+Z.
+
+## Pratinjau karakter
+Layar **Edit karakter** punya panggung pratinjau sendiri (latar polos, pencahayaan studio, bisa diputar dengan menyeretnya), jadi karakter selalu jelas terlihat dengan warna aslinya, tidak bergantung pada pemandangan museum di belakangnya. Di HP potret panggung berada di atas panel, di layar lebar di kanan panel.
