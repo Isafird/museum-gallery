@@ -159,3 +159,7 @@ Di ruangan lingkaran atau elips, bingkai otomatis dimajukan sedikit dari dinding
 
 ## Ekspor / impor denah
 Di editor denah (**L**) ada tombol **Ekspor** (mengunduh `layout.json`) dan **Impor** (memuat file `layout.json`). Impor hanya memuat ke editor dan bisa diurungkan; denah baru dipakai dan tersimpan setelah menekan **Simpan & terapkan**. Foto di bingkai dengan nomor yang sama ikut muncul di bingkai hasil impor.
+
+## Ruangan lengkung dan memindahkan bingkai di denah
+- Di ruangan lingkaran, elips, dan setengah lingkaran, bingkai dan jendela menempel mengikuti sudut, bukan grid lurus. Titiknya dibagi rata dan selalu ada titik di tengah, jadi letaknya simetris. Bingkai menghadap tepat ke tengah ruangan.
+- Alat **Pilih**: seret bingkai atau jendela untuk memindahkannya ke tempat lain di dinding (juga ke ruangan lain). Bisa diurungkan dengan Ctrl+Z.
