@@ -156,3 +156,6 @@ Menu **Tur otomatis** (tombol **U**) membuat kamera berjalan sendiri melewati se
 
 ## Bingkai di dinding melengkung
 Di ruangan lingkaran atau elips, bingkai otomatis dimajukan sedikit dari dinding (hingga sekitar 12 cm) supaya ujung sampingnya tidak tembus dinding. Dinding lurus tidak berubah.
+
+## Ekspor / impor denah
+Di editor denah (**L**) ada tombol **Ekspor** (mengunduh `layout.json`) dan **Impor** (memuat file `layout.json`). Impor hanya memuat ke editor dan bisa diurungkan; denah baru dipakai dan tersimpan setelah menekan **Simpan & terapkan**. Foto di bingkai dengan nomor yang sama ikut muncul di bingkai hasil impor.

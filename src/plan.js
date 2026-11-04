@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { analyze, shapePoly, snapToWall, frameOnWall, windowOnWall, MAX_WINDOWS, WIN_W, floorArea, inFloor, pip, segD, doorPoly, MAX_FRAMES, MAX_LIGHTS, FRAME_W, DOOR_W } from './layout.js';
+import { analyze, normalizeLayout, shapePoly, snapToWall, frameOnWall, windowOnWall, MAX_WINDOWS, WIN_W, floorArea, inFloor, pip, segD, doorPoly, MAX_FRAMES, MAX_LIGHTS, FRAME_W, DOOR_W } from './layout.js';
 import { toggleModal } from './modal.js';
 import { toast } from './toast.js';
 import { commitLayout } from './world.js';
@@ -428,6 +428,22 @@ $('pgrid').onchange = e => { grid = +e.target.value; e.target.blur(); draw(); };
 $('pmir').onchange = e => { mir = +e.target.value; e.target.blur(); };
 $('prot').onclick = e => { rotateAction(); e.currentTarget.blur(); };
 $('pundo').onclick = e => { undo(); e.currentTarget.blur(); };
+// Ekspor / impor denah sebagai file layout.json. Impor hanya memuat ke editor (bisa diurungkan); baru tersimpan setelah "Simpan & terapkan".
+$('pexp').onclick = e => {
+  e.currentTarget.blur(); const blob = new Blob([JSON.stringify(work)], { type: 'application/json' }), a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'layout.json'; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+};
+$('pimp').onclick = e => { e.currentTarget.blur(); $('pimpf').value = ''; $('pimpf').click(); };
+$('pimpf').onchange = async () => {
+  const f = $('pimpf').files[0]; if (!f) return;
+  try {
+    const raw = JSON.parse(await f.text()); if (!raw || !Array.isArray(raw.shapes) || !raw.shapes.length) throw new Error('bukan file denah');
+    const next = normalizeLayout(raw); next.doors = next.doors || []; next.windows = next.windows || [];
+    commit(() => { work = JSON.parse(JSON.stringify(next)); sel = null; drag = null; });
+    if (!work.lights) work.lights = analyze(work).lights.map(l => ({ ...l }));
+    fit(); reanalyze(); draw(); toast('Denah dimuat. Tekan "Simpan & terapkan" untuk memakainya');
+  } catch (err) { toast('File denah tidak bisa dibaca: ' + (err.message || err)); }
+};
 $('pcancel').onclick = () => planKey({ code: 'Escape' });
 $('psave').onclick = async () => {
   const mm = analyze(work); if (!mm.walls.length) { toast('Gambar minimal satu ruangan'); return; }
