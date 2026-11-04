@@ -142,7 +142,7 @@ export function analyze(l) {
   const all = polys.flat(), b = { minx: Infinity, maxx: -Infinity, minz: Infinity, maxz: -Infinity };
   all.forEach(([x, z]) => { b.minx = Math.min(b.minx, x); b.maxx = Math.max(b.maxx, x); b.minz = Math.min(b.minz, z); b.maxz = Math.max(b.maxz, z); });
   const bounds = all.length ? b : { minx: -5, maxx: 5, minz: -5, maxz: 5 };
-  return { polys, walls, bounds, shapes: l.shapes, lights: Array.isArray(l.lights) ? l.lights : autoLights({ polys, bounds }) };
+  return { polys, walls, bounds, lights: Array.isArray(l.lights) ? l.lights : autoLights({ polys, bounds }) };
 }
 // Lampu ruangan otomatis: kisi merata di dalam lantai, paling banyak MAX_LIGHTS
 export function autoLights(m) {
@@ -195,40 +195,6 @@ function mergeWalls(ws) {
   }
   mergedCache.set(ws, out); return out;
 }
-// Ruangan lengkung (lingkaran, elips, setengah lingkaran): titik tempel dibagi rata menurut sudut (kelipatan 4 langkah, jadi selalu ada titik di
-// tengah dan simetris terhadap sumbu bentuk). Dinding lengkung hanya potongan lurus pendek, jadi grid lurus biasa membuat letaknya miring dan tidak simetris.
-function curveSnap(m, px, pz, step, margin0) {
-  let best = null;
-  (m.shapes || []).forEach(s => {
-    if (s.k !== 'ellipse' && s.k !== 'semi') return;
-    const semi = s.k === 'semi', r = (s.r || 0) % 4, poly = shapePoly(s);
-    const toWorld = th => {                                         // titik pada kurva, lewat ruang satuan lalu diputar seperti shapePoly
-      let a = semi ? .5 + .5 * Math.cos(th) : .5 + .5 * Math.cos(th), b = semi ? 1 - Math.sin(th) : .5 + .5 * Math.sin(th);
-      for (let n = 0; n < r; n++) [a, b] = [1 - b, a];
-      return [s.x + a * s.w, s.z + b * s.h];
-    };
-    let ua = (px - s.x) / s.w, ub = (pz - s.z) / s.h;
-    for (let n = 0; n < r; n++) [ua, ub] = [ub, 1 - ua];
-    let th = semi ? Math.atan2(1 - ub, ua - .5) : Math.atan2(ub - .5, ua - .5);
-    const A = s.w / 2, B = semi ? s.h : s.h / 2, P = Math.PI * (3 * (A + B) - Math.sqrt((3 * A + B) * (A + 3 * B))) * (semi ? .5 : 1);
-    const N = 4 * Math.max(1, Math.round(P / (step * 4))), dth = 2 * Math.PI / N;
-    if (semi) th = Math.max(0, Math.min(Math.PI, th)); th = Math.round(th / dth) * dth;
-    const p0 = toWorld(th), e = 1e-3, p1 = toWorld(th + e), p2 = toWorld(th - e);
-    let tx = p1[0] - p2[0], tz = p1[1] - p2[1]; const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
-    let nx = -tz, nz = tx; if (!pip([p0[0] + nx * .4, p0[1] + nz * .4], poly)) { nx = -nx; nz = -nz; }     // normal ke arah dalam ruangan
-    let bp = null, bd = 1e9;                                       // titik di dinding (poligon) terdekat dari titik kurva
-    poly.forEach((q, i) => {
-      const o = poly[(i + 1) % poly.length], ex = o[0] - q[0], ez = o[1] - q[1], t = Math.max(0, Math.min(1, ((p0[0] - q[0]) * ex + (p0[1] - q[1]) * ez) / (ex * ex + ez * ez || 1)));
-      const x = q[0] + ex * t, z = q[1] + ez * t, d = Math.hypot(x - p0[0], z - p0[1]); if (d < bd) { bd = d; bp = [x, z]; }
-    });
-    const onWall = (x, z) => m.walls.some(w => !w.div && segD(x, z, w.x1, w.z1, w.x2, w.z2) < .22 && nx * w.nx + nz * w.nz > .85);
-    const reach = Math.min(margin0, 1.4) * .85;
-    if (!onWall(bp[0], bp[1]) || !onWall(bp[0] + tx * reach, bp[1] + tz * reach) || !onWall(bp[0] - tx * reach, bp[1] - tz * reach)) return;   // di bukaan pintu / sambungan: bukan dinding utuh
-    const d = Math.hypot(px - bp[0], pz - bp[1]);
-    if (!best || d < best.d) best = { x: +bp[0].toFixed(3), z: +bp[1].toFixed(3), a: +Math.atan2(nx, nz).toFixed(4), d, rank: d, curved: true };
-  });
-  return best;
-}
 export function snapToWall(m, px, pz, step = .5, margin0 = FRAME_W / 2 + .1) {
   let best = null;
   for (const w of mergeWalls(m.walls)) {
@@ -243,11 +209,7 @@ export function snapToWall(m, px, pz, step = .5, margin0 = FRAME_W / 2 + .1) {
     let nx = w.nx, nz = w.nz;
     if (w.div && (px - ax) * -uz + (pz - az) * ux < 0) { nx = -nx; nz = -nz; }   // dinding pembatas: pilih sisi kursor
     const rank = d + (L < 2 * margin0 ? .6 : 0);      // dinding lurus panjang diutamakan daripada sisi-sisi pendek lingkaran
-    if (!best || rank < best.rank) best = { x: +ax.toFixed(3), z: +az.toFixed(3), a: +Math.atan2(nx, nz).toFixed(4), d, rank, short: L < 2 * margin0 };
-  }
-  if (Math.abs(margin0 - (DOOR_W / 2 + .05)) > 1e-6) {          // pintu tetap di dinding lurus; bingkai dan jendela mengikuti lengkungan
-    const cs = curveSnap(m, px, pz, step, margin0);
-    if (cs && cs.d < 2 && (!best || best.short || cs.d <= best.d + .15)) return cs;
+    if (!best || rank < best.rank) best = { x: +ax.toFixed(3), z: +az.toFixed(3), a: +Math.atan2(nx, nz).toFixed(4), d, rank };
   }
   return best && best.d < 2 ? best : null;
 }
@@ -255,23 +217,6 @@ export function snapToWall(m, px, pz, step = .5, margin0 = FRAME_W / 2 + .1) {
 export function windowOnWall(f, m) {
   const nx = Math.sin(f.a), nz = Math.cos(f.a);
   return m.walls.some(w => !w.div && segD(f.x, f.z, w.x1, w.z1, w.x2, w.z2) < .06 && nx * w.nx + nz * w.nz > .98);
-}
-// Dinding melengkung (lingkaran / elips) tersusun dari potongan lurus, sedangkan bingkai rata: ujung samping bingkai bisa masuk ke dinding.
-// Hitung berapa meter bingkai perlu dimajukan dari dinding supaya seluruh lebarnya tetap di depan dinding.
-export function frameGap(m, f, vert) {
-  const hw = vert ? 1.1 : 1.45, nx = Math.sin(f.a), nz = Math.cos(f.a), ux = nz, uz = -nx, R = .9; let gap = 0;
-  for (let k = -4; k <= 4; k++) {
-    const s = hw * k / 4, ox = f.x + ux * s + nx * R, oz = f.z + uz * s + nz * R; let t = Infinity;
-    for (const w of m.walls) {                                          // sinar dari depan bingkai menuju dinding (arah -n)
-      const ex = w.x2 - w.x1, ez = w.z2 - w.z1, den = -nx * ez + nz * ex; if (Math.abs(den) < 1e-9) continue;
-      const qx = w.x1 - ox, qz = w.z1 - oz, tt = (qx * ez - qz * ex) / den, uu = (qx * -nz + qz * nx) / den * -1;
-      // titik pada sinar: o - n*tt ; pada dinding: w1 + e*uu
-      const px = ox - nx * tt, pz = oz - nz * tt, e2 = ex * ex + ez * ez, u2 = ((px - w.x1) * ex + (pz - w.z1) * ez) / e2;
-      if (tt > 0 && u2 >= -1e-6 && u2 <= 1 + 1e-6 && tt < t) t = tt;
-    }
-    if (isFinite(t)) gap = Math.max(gap, R - t);
-  }
-  return Math.max(0, gap - .04);
 }
 export function frameOnWall(f, m) {
   const nx = Math.sin(f.a), nz = Math.cos(f.a);

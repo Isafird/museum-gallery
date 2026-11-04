@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { scene } from './scene.js';
 import { ROOM, TITLES, DEFAULT_PHOTO, FRAME_STYLES } from './config.js';
-import { analyze, walkable as walk, inFloor, segD, frameGap, FRAME_OFF, WALL_T, DOOR_W, MAX_LIGHTS, WIN_W } from './layout.js';
+import { analyze, walkable as walk, inFloor, segD, FRAME_OFF, WALL_T, DOOR_W, MAX_LIGHTS, WIN_W } from './layout.js';
 import { buildFrame } from './frames3d.js';
 import { mergeBufferGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { buildOutdoor, lampScale, spotLevel } from './daytime.js';
@@ -240,8 +240,7 @@ export function buildMuseum(layout) {
   setupLamps(lamps);
   layout.frames.forEach(f => {                                     // bingkai + papan nama + lampu sorot
     const e = ensureEntry(f.id), g = new THREE.Group(); setOrient(e, f.o === 'v');
-    const off = FRAME_OFF + frameGap(m, f, f.o === 'v');                 // dinding melengkung: majukan bingkai sedikit supaya sisinya tidak tembus dinding
-    g.position.set(f.x + Math.sin(f.a) * off, 2, f.z + Math.cos(f.a) * off); g.rotation.y = f.a;
+    g.position.set(f.x + Math.sin(f.a) * FRAME_OFF, 2, f.z + Math.cos(f.a) * FRAME_OFF); g.rotation.y = f.a;
     const holder = new THREE.Group(); g.add(holder); e.frameMesh = holder;
     const p = new THREE.Mesh(e.vert ? new THREE.PlaneGeometry(1.7, 2.4) : new THREE.PlaneGeometry(2.4, 1.7), new THREE.MeshBasicMaterial({ map: e.tex }));
     p.position.z = .06; p.userData.i = f.id; p.userData.own = true; g.add(p);
