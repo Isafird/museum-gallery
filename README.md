@@ -150,7 +150,8 @@ Menu **Tur otomatis** (tombol **U**) membuat kamera berjalan sendiri melewati se
 - Pilih bentuk video: landscape (1280×720 atau 1920×1080) atau potret (720×1280 atau 1080×1920). Pratinjau di layar sudah sesuai bentuk video.
 - Rute dicari dari denah (tidak menembus dinding, memutar lewat pintu), lalu urutan bingkai dirapikan supaya jalannya paling singkat. Bisa juga diurutkan sesuai nomor bingkai.
 - Kamera berhenti di depan tiap bingkai dengan sudut pandang yang menyesuaikan jarak dan bentuk bingkai (mendatar atau tegak), perlahan mendekat, dan memudar hitam di awal dan akhir.
-- Opsi **geser menyamping**: antar bingkai yang berdekatan dan searah, kamera tetap menghadap dinding dan hanya bergeser (seperti kepiting), tidak berputar. Berputar hanya kalau arah bingkai berikutnya berbeda jauh.
+- Jalur kamera memilih bagian tengah ruangan dan bukaan: kamera tidak pernah lebih dekat dari sekitar 0,75 m ke dinding atau ujung sekat, dan menjauh dari bingkai lain. Titik berdiri di depan bingkai juga dipilih agar tidak mepet dinding di seberangnya.
+- Gerak kamera dibuat mulus: setelah berhenti di bingkai, kamera berputar satu kali dengan pelan (dengan arah putar yang konsisten, termasuk saat harus berbalik badan) sambil mulai berjalan, tanpa lompatan posisi atau arah. Opsi **geser menyamping** membuat kamera tetap menghadap dinding saat berpindah antar bingkai berdekatan, tidak ikut condong ke arah jalan.
 - **Gaya sinematik** (bawaan): kamera sedikit naik-turun mengikuti langkah dan bergoyang halus, tepi gambar digelapkan lembut (vignette), dan lampu sorot serta lampu ruangan dibuat sedikit lebih terang. Pilih **Biasa** untuk gerak lurus tanpa efek.
 - **Pudar singkat saat melewati pintu**: layar memudar sebentar tiap kamera berpindah ruangan.
 - **Atur per bingkai**: di editor denah (L), pilih sebuah bingkai lalu atur "Di tur otomatis": biasa, lewati, berhenti 2x atau 3x lebih lama. Pengaturan ikut tersimpan di denah.

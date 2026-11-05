@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { renderer, camera, scene, sizeLock } from './scene.js';
 import { state } from './state.js';
 import { walkable, museum, fx } from './gallery.js';
-import { findSpawn } from './layout.js';
+import { findSpawn, frameGap, FRAME_OFF, segD } from './layout.js';
 import { openModal, toggleModal } from './modal.js';
 import { setTimeMode, timeMode } from './daytime.js';
 import { audioStream, startAudio } from './audio.js';
@@ -22,8 +22,12 @@ function prepare() {
   const L = museum.layout; if (cache && cache.L === L) return cache;
   const b = museum.bounds, minx = b.minx - CELL, minz = b.minz - CELL;
   const W = Math.ceil((b.maxx - b.minx) / CELL) + 3, H = Math.ceil((b.maxz - b.minz) / CELL) + 3, ok = new Uint8Array(W * H);
-  for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) ok[z * W + x] = walkable(minx + x * CELL, minz + z * CELL, .4) ? 1 : 0;
-  const c = { L, minx, minz, W, H, ok, stops: [] };
+  const pen = new Float32Array(W * H);                                            // biaya tambahan di dekat dinding: jalur memilih bagian tengah ruangan/bukaan
+  for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) {
+    const X = minx + x * CELL, Z = minz + z * CELL, i = z * W + x; ok[i] = walkable(X, Z, .4) ? 1 : 0; if (!ok[i]) continue;
+    pen[i] = !walkable(X, Z, .7) ? 4 : !walkable(X, Z, 1.0) ? 2 : !walkable(X, Z, 1.4) ? .6 : 0;
+  }
+  const c = { L, minx, minz, W, H, ok, pen, stops: [] };
   const cellOf = (x, z) => {
     const cx = Math.round((x - minx) / CELL), cz = Math.round((z - minz) / CELL);
     let best = -1, bd = 1e9;
@@ -35,12 +39,13 @@ function prepare() {
   };
   c.cellOf = cellOf; c.pos = i => [minx + (i % W) * CELL, minz + Math.floor(i / W) * CELL];
   (L.frames || []).forEach(f => {                                  // titik berdiri di depan tiap bingkai
-    const nx = Math.sin(f.a), nz = Math.cos(f.a);
-    for (let d = STAND_D; d >= MIN_D - 1e-6; d -= .2) {
+    const nx = Math.sin(f.a), nz = Math.cos(f.a); let placed = false;
+    for (let pass = 0; pass < 2; pass++) for (let d = STAND_D; d >= MIN_D - 1e-6; d -= .2) {          // utamakan titik yang tidak terlalu mepet dinding di seberangnya
+      const clearOnly = pass === 0; if (placed) break;
       const x = f.x + nx * d, z = f.z + nz * d;
-      if (!walkable(x, z, .4)) continue;
+      if (!walkable(x, z, .4) || (clearOnly && !walkable(x, z, .6))) continue;
       const cell = cellOf(x, z); if (cell < 0) continue;
-      c.stops.push({ id: f.id, x, z, a: f.a, d, vert: f.o === 'v', tr: f.tr, cell, dm: null }); break;
+      c.stops.push({ id: f.id, x, z, a: f.a, d, vert: f.o === 'v', tr: f.tr, cell, dm: null }); placed = true; break;
     }
   });
   return (cache = c);
@@ -58,7 +63,7 @@ class Heap {
 }
 const S2 = Math.SQRT2;
 function dijkstra(c, src, dst = -1) {
-  const { W, H, ok } = c, dist = new Float32Array(W * H).fill(Infinity), prev = new Int32Array(W * H).fill(-1), h = new Heap();
+  const { W, H, ok, pen } = c, dist = new Float32Array(W * H).fill(Infinity), prev = new Int32Array(W * H).fill(-1), h = new Heap();
   dist[src] = 0; h.push(0, src);
   while (h.size) {
     const u = h.pop(), du = dist[u]; if (u === dst) break;
@@ -67,7 +72,7 @@ function dijkstra(c, src, dst = -1) {
       if (!dx && !dz) continue; const X = ux + dx, Z = uz + dz; if (X < 0 || Z < 0 || X >= W || Z >= H) continue;
       const v = Z * W + X; if (!ok[v]) continue;
       if (dx && dz && (!ok[uz * W + X] || !ok[Z * W + ux])) continue;      // jangan memotong sudut dinding
-      const nd = du + (dx && dz ? S2 : 1); if (nd < dist[v]) { dist[v] = nd; prev[v] = u; h.push(nd, v); }
+      const nd = du + (dx && dz ? S2 : 1) * (1 + pen[v]); if (nd < dist[v]) { dist[v] = nd; prev[v] = u; h.push(nd, v); }
     }
   }
   return { dist, prev };
@@ -75,7 +80,7 @@ function dijkstra(c, src, dst = -1) {
 const dmap = (c, s) => s.dm || (s.dm = dijkstra(c, s.cell).dist);
 
 // ---------- jalur halus ----------
-const clear = (a, b, r = .4) => {
+const clear = (a, b, r = .75) => {
   const L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / .2));
   for (let i = 0; i <= n; i++) if (!walkable(a[0] + (b[0] - a[0]) * i / n, a[1] + (b[1] - a[1]) * i / n, r)) return false;
   return true;
@@ -92,7 +97,7 @@ function makePath(c, a, b) {            // a, b: { x, z, cell }
   while (i < pts.length - 1) { let j = pts.length - 1; while (j > i + 1 && !clear(pts[i], pts[j])) j--; pulled.push(pts[j]); i = j; }
   let sm2 = pulled;
   if (pulled.length > 2) {
-    let t = chaikin(chaikin(pulled)); if (!t.every((q, k) => k === 0 || k === t.length - 1 || walkable(q[0], q[1], .28))) { t = chaikin(pulled); if (!t.every((q, k) => k === 0 || k === t.length - 1 || walkable(q[0], q[1], .28))) t = pulled; }
+    let t = chaikin(chaikin(pulled)); if (!t.every((q, k) => k === 0 || k === t.length - 1 || walkable(q[0], q[1], .5))) { t = chaikin(pulled); if (!t.every((q, k) => k === 0 || k === t.length - 1 || walkable(q[0], q[1], .5))) t = pulled; }
     sm2 = t;
   }
   const cum = [0]; for (let k = 1; k < sm2.length; k++) cum.push(cum[k - 1] + Math.hypot(sm2[k][0] - sm2[k - 1][0], sm2[k][1] - sm2[k - 1][1]));
@@ -114,6 +119,11 @@ function frameFov(stop, d, aspect) {     // sudut pandang yang pas supaya satu b
   const w = stop.vert ? 2.5 : 3.4, h = stop.vert ? 3.5 : 2.9;
   const hf = 2 * Math.atan(w / 2 / d), vw = 2 * Math.atan(Math.tan(hf / 2) / aspect), vh = 2 * Math.atan(h / 2 / d);
   return Math.max(46, Math.min(98, Math.max(vw, vh) * 180 / Math.PI));
+}
+function turnDelta(fromA, toA, v) {      // sudut putar total; kalau hampir berbalik 180 derajat, arah putarnya mengikuti arah gerak supaya tidak bolak-balik
+  let D = wrap(toA - fromA);
+  if (Math.abs(D) > Math.PI - .35) { const side = v[0] * -Math.cos(fromA) + v[1] * Math.sin(fromA); if (side > 0 && D < 0) D += Math.PI * 2; else if (side < 0 && D > 0) D -= Math.PI * 2; }
+  return D;
 }
 function plan(o) {
   const c = prepare(); if (!c.stops.length) return null;
@@ -146,9 +156,9 @@ function plan(o) {
     const fov = frameFov(s, s.d - .2, aspect), pitch = Math.atan2(LOOK_Y - CAM_Y, s.d - .2);
     const ta = Math.min(1.0, Math.max(.4, path.L / v / 3));
     const crab = !!o.crab && prev.id !== undefined && Math.abs(wrap(s.a - prev.a)) < .9 && path.L < 12;      // bingkai berdekatan: geser menyamping, kamera tidak berputar
-    const turn = crab ? Math.abs(wrap(s.a - prev.a)) : Math.abs(wrap(headYaw(path, 0) - prev.a)) + Math.abs(wrap(s.a - headYaw(path, path.L)));
-    const dur = Math.max(1.4, path.L / v + ta, 1.1 + turn / .8);                 // cukup lama supaya kamera berputar dengan halus (tidak menyentak)
-    segs.push({ k: 'go', t0: t, dur, path, ta, crab, from: prev, to: { ...s, fov, pitch } });
+    const D = turnDelta(prev.a, s.a, [s.x - prev.x, s.z - prev.z]);               // satu putaran mulus dari arah lama ke arah bingkai berikutnya
+    const dur = Math.max(1.4, path.L / v + ta, 1.2 + Math.abs(D) / .75);          // cukup lama supaya putarannya pelan (tidak menyentak)
+    segs.push({ k: 'go', t0: t, dur, path, ta, crab, D, from: prev, to: { ...s, fov, pitch } });
     if (o.doorfade && doors.length) {                                          // melewati pintu: catat saatnya untuk pudar singkat (tiap pintu yang dilewati)
       const vv = path.L / (dur - ta), sAt = tt => tt < ta ? vv * tt * tt / (2 * ta) : tt > dur - ta ? path.L - vv * (dur - tt) * (dur - tt) / (2 * ta) : vv * (tt - ta / 2);
       doors.forEach(d => {
@@ -176,19 +186,21 @@ function pose(P, t) {       // posisi dan arah kamera pada detik ke-t (+ gerak s
 function pose0(P, t) {
   let seg = P.segs[P.segs.length - 1]; for (const s of P.segs) if (t < s.t0 + s.dur) { seg = s; break; }
   const u = t - seg.t0;
-  if (seg.k === 'stay') {
-    const s = seg.s, nx = Math.sin(s.a), nz = Math.cos(s.a), side = Math.sin(t * .6) * .07 * Math.min(1, u / 1.2);
-    return { x: s.x + nz * side, z: s.z - nx * side, yaw: s.a + Math.sin(t * .5) * .012, pitch: seg.pitch, fov: seg.fov, mv: 0 };      // diam di tempat (hanya goyangan halus): mendekat ke bingkai cukup sekali, saat berjalan
+  if (seg.k === 'stay') {                         // diam di depan bingkai: hanya goyangan halus yang memudar di awal dan akhir (tidak ada lompatan ke gerakan berikutnya)
+    const s = seg.s, nx = Math.sin(s.a), nz = Math.cos(s.a), env = sm(u / 1.0) * sm((seg.dur - u) / 1.0), side = Math.sin(t * .6) * .07 * env;
+    return { x: s.x + nz * side, z: s.z - nx * side, yaw: s.a + Math.sin(t * .5) * .012 * env, pitch: seg.pitch, fov: seg.fov, mv: 0 };
   }
   const { path, ta, dur, from, to } = seg, vv = path.L / (dur - ta), tt = Math.min(u, dur);
   const s = tt < ta ? vv * tt * tt / (2 * ta) : tt > dur - ta ? path.L - vv * (dur - tt) * (dur - tt) / (2 * ta) : vv * (tt - ta / 2);
   const [x, z] = at(path, s);
   const mv = Math.min(1, Math.sqrt(Math.max(0, tt < ta ? vv * tt / ta : tt > dur - ta ? vv * (dur - tt) / ta : vv)) / 1.4);   // 0 saat diam, 1 saat berjalan
-  if (seg.crab) { const w = sm(s / (path.L || 1)); return { x, z, mv, yaw: lerpA(from.a, to.a, w), pitch: from.pitch + (to.pitch - from.pitch) * w, fov: from.fov + (to.fov - from.fov) * w }; }
-  const head = headYaw(path, s);
-  const w1 = sm(tt / (dur * .45)), w2 = sm((tt - dur * .55) / (dur * .45));      // berputar pelan di awal dan di akhir perjalanan (berdasarkan waktu)
-  let yaw = lerpA(lerpA(from.a, head, w1), to.a, w2);
-  return { x, z, mv, yaw, pitch: to.pitch * w2, fov: lerp(lerp(from.fov, P.baseFov, w1), to.fov, w2) };
+  const W = sm(tt / dur);                                                      // satu putaran halus sepanjang perjalanan (tanpa wrap, jadi tidak ada lompatan)
+  let yaw = from.a + seg.D * W, fov = from.fov + (to.fov - from.fov) * W;
+  if (!seg.crab && path.L > 5) {                                               // perjalanan jauh: kamera sedikit condong ke arah jalan, memudar di awal dan akhir
+    const b = Math.sin(Math.PI * Math.min(1, s / path.L)) ** 2;
+    yaw += Math.sin(headYaw(path, s) - yaw) * .6 * b; fov += (P.baseFov - fov) * .6 * b;
+  }
+  return { x, z, mv, yaw, pitch: from.pitch + (to.pitch - from.pitch) * W, fov };
 }
 
 // ---------- menjalankan tur ----------
@@ -264,6 +276,27 @@ export function stopTour(done = false) {          // done: selesai sampai akhir 
 
 export const tourSeek = t => { if (run) run.t = t; };      // untuk pengujian otomatis
 export const tourPose = t => run && pose(run.P, t);
+// Pemeriksaan kualitas (untuk pengujian): seberapa penuh/tengah bingkai di layar saat berhenti, dan jarak kamera ke dinding dan bingkai lain
+export function tourAudit() {
+  if (!run) return null; const P = run.P, frames = museum.layout.frames || [], cam = new THREE.PerspectiveCamera(60, P.aspect, .1, 100), V = new THREE.Vector3(), bad = []; cam.rotation.order = 'YXZ';
+  const box = f => { const vert = f.o === 'v', off = FRAME_OFF + frameGap(museum, f, vert), nx = Math.sin(f.a), nz = Math.cos(f.a); return { vert, cx: f.x + nx * off, cz: f.z + nz * off, tx: nz, tz: -nx, hw: vert ? 1.0 : 1.35, hh: vert ? 1.35 : 1.0 }; };
+  const stops = [];
+  P.segs.filter(s => s.k === 'stay').forEach(seg => {
+    const p = pose(P, seg.t0 + seg.dur * .5), f = frames.find(q => q.id === seg.s.id), b = box(f);
+    cam.fov = p.fov; cam.position.set(p.x, p.y || CAM_Y, p.z); cam.rotation.set(p.pitch, p.yaw, p.roll || 0); cam.updateProjectionMatrix(); cam.updateMatrixWorld(true);
+    let x0 = 9, x1 = -9, y0 = 9, y1 = -9;
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sy]) => { V.set(b.cx + b.tx * b.hw * sx, 2 + b.hh * sy, b.cz + b.tz * b.hw * sx).project(cam); x0 = Math.min(x0, V.x); x1 = Math.max(x1, V.x); y0 = Math.min(y0, V.y); y1 = Math.max(y1, V.y); });
+    stops.push({ id: f.id, vert: b.vert, d: +seg.s.d.toFixed(2), fov: +p.fov.toFixed(0), w: +((x1 - x0) / 2).toFixed(2), h: +((y1 - y0) / 2).toFixed(2), cx: +((x0 + x1) / 2).toFixed(2), cy: +((y0 + y1) / 2).toFixed(2), clip: x0 < -1 || x1 > 1 || y0 < -1 || y1 > 1 });
+  });
+  let minWall = 9, minFrame = 9, nearFrame = 0, nearWall = 0;
+  const bx = frames.map(box);
+  for (let t = 0; t < P.T; t += .1) {
+    const p = pose(P, t); let w = 9; museum.walls.forEach(q => { w = Math.min(w, segD(p.x, p.z, q.x1, q.z1, q.x2, q.z2)); }); minWall = Math.min(minWall, w); if (w < .6) { nearWall++; if (bad.length < 12) bad.push([+t.toFixed(1), +p.x.toFixed(1), +p.z.toFixed(1), +w.toFixed(2)]); }
+    bx.forEach((b, i) => { const seg = P.segs.find(s => s.k === 'stay' && s.s.id === frames[i].id); if (seg && t >= seg.t0 - .5 && t <= seg.t0 + seg.dur + .5) return;
+      const u = Math.max(-b.hw, Math.min(b.hw, (p.x - b.cx) * b.tx + (p.z - b.cz) * b.tz)), d = Math.hypot(p.x - (b.cx + b.tx * u), p.z - (b.cz + b.tz * u)); minFrame = Math.min(minFrame, d); if (d < .7) nearFrame++; });
+  }
+  return { stops, bad, minWall: +minWall.toFixed(2), nearWall, minFrame: +minFrame.toFixed(2), nearFrame };
+}
 export const tourInfo = () => run && { t: run.t, T: run.P.T, n: run.P.n, segs: run.P.segs.length, dips: run.P.dips };
 export function tourUpdate(dt) {                  // dipanggil tiap frame dari loop utama
   if (!run) return;

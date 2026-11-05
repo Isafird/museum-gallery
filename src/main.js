@@ -24,7 +24,7 @@ import { applyLayout, loadLocal, updateFrameDrag, isDraggingFrame } from './worl
 import { defaultLayout } from './layout.js';
 import { updateDaytime, setTimeMode } from './daytime.js';
 import { startAudio, updateAudio, setMusicSeed } from './audio.js';
-import { initTour, tourActive, tourUpdate, startTour, tourSeek, tourInfo, tourPose } from './tour.js';
+import { initTour, tourActive, tourUpdate, startTour, tourSeek, tourInfo, tourPose, tourAudit } from './tour.js';
 
 const { H } = ROOM;
 const JUMP_V = 5.6, GRAV = 16;   // loncat setinggi ±1 m
@@ -91,7 +91,7 @@ async function backToMenu() {
   showStart(); toast('Kembali ke menu awal');
 }
 
-if (location.search.includes('debug')) window.__s = { makeAvatar, state, walkable, entries, setFrameStyle, render, renderer, scene, camera, applyLayout, isDraggingFrame, setTimeMode, startTour, tourSeek, tourInfo, tourPose };   // hook untuk pengujian otomatis (tambahkan ?debug ke alamat)
+if (location.search.includes('debug')) window.__s = { makeAvatar, state, walkable, entries, setFrameStyle, render, renderer, scene, camera, applyLayout, isDraggingFrame, setTimeMode, startTour, tourSeek, tourInfo, tourPose, tourAudit };   // hook untuk pengujian otomatis (tambahkan ?debug ke alamat)
 if (new URLSearchParams(location.search).has('cek')) import('./diagnose.js').then(m => m.run());   // halaman diagnosis Supabase
 const ray = new THREE.Raycaster(), clock = new THREE.Clock();
 
