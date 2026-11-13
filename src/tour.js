@@ -125,7 +125,34 @@ function turnDelta(fromA, toA, v) {      // sudut putar total; kalau hampir berb
   if (Math.abs(D) > Math.PI - .35) { const side = v[0] * -Math.cos(fromA) + v[1] * Math.sin(fromA); if (side > 0 && D < 0) D += Math.PI * 2; else if (side < 0 && D > 0) D -= Math.PI * 2; }
   return D;
 }
+const SPEEDS_STRAIGHT = { santai: 1.2, normal: 1.8, cepat: 2.8 };
+function planStraight(o) {          // jalan lurus terus sepanjang lorong (tanpa berhenti, tanpa berputar)
+  const fr = (museum.layout && museum.layout.frames) || []; if (!fr.length) return null;
+  let mx = 0, mz = 0; fr.forEach(f => { mx += f.x; mz += f.z; }); mx /= fr.length; mz /= fr.length;
+  let sxx = 0, sxz = 0, szz = 0; fr.forEach(f => { sxx += (f.x - mx) ** 2; sxz += (f.x - mx) * (f.z - mz); szz += (f.z - mz) ** 2; });
+  const th = .5 * Math.atan2(2 * sxz, sxx - szz); let dx = Math.cos(th), dz = Math.sin(th);      // sumbu utama sebaran bingkai
+  let umin = Infinity, umax = -Infinity; fr.forEach(f => { const u = (f.x - mx) * dx + (f.z - mz) * dz; umin = Math.min(umin, u); umax = Math.max(umax, u); });
+  let a = umin - 3, b = umax + 3; const pt = u => [mx + dx * u, mz + dz * u];
+  while (a < b && !walkable(...pt(a), .8)) a += .25; while (b > a && !walkable(...pt(b), .8)) b -= .25;
+  if (b - a < 4) return null;
+  for (let u = a; u <= b; u += .25) if (!walkable(...pt(u), .6)) return null;                  // bukan lorong lurus
+  let A = pt(a), B = pt(b); const dA = Math.hypot(A[0] - state.P.x, A[1] - state.P.z), dB = Math.hypot(B[0] - state.P.x, B[1] - state.P.z);
+  if ((dB < dA - .01) !== !!o.reverse) [A, B] = [B, A];
+  const L0 = Math.hypot(B[0] - A[0], B[1] - A[1]), yaw = Math.atan2(-(B[0] - A[0]), -(B[1] - A[1])), rx = Math.cos(yaw), rz = -Math.sin(yaw);   // rx,rz: arah kanan kamera
+  const mode = o.sway || 'none', lam = Math.max(9, L0 / 4);
+  const offAt = (s, amp) => mode === 'zigzag' ? amp * Math.sin(2 * Math.PI * s / lam) * Math.min(1, s / 3, (L0 - s) / 3)      // kiri-kanan bergantian
+    : mode === 'left' ? amp * (1 - 2 * sm(s / L0)) : mode === 'right' ? -amp * (1 - 2 * sm(s / L0)) : 0;                // menyamping pelan ke satu sisi
+  const mk = amp => { const pts = []; for (let s = 0; s <= L0 + 1e-6; s += .25) { const q = Math.min(s, L0), f = offAt(q, amp); pts.push([A[0] + (B[0] - A[0]) * q / L0 + rx * f, A[1] + (B[1] - A[1]) * q / L0 + rz * f]); } return pts; };
+  let pts = [A, B], swayAmp = 0;
+  if (mode !== 'none') { for (let amp = 1.5; amp >= .3; amp -= .1) { const q = mk(amp); if (q.every(pp => walkable(pp[0], pp[1], .55))) { pts = q; swayAmp = amp; break; } } }   // selebar mungkin, tidak menyentuh sekat atau dinding
+  const cum = [0]; for (let k = 1; k < pts.length; k++) cum.push(cum[k - 1] + Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]));
+  const L = cum[cum.length - 1], v = SPEEDS_STRAIGHT[o.speed] || SPEEDS_STRAIGHT.normal, ta = Math.min(2, L / v / 4), dur = L / v + ta;
+  const aspect = o.W / o.H, fov = aspect < 1 ? 100 : 66;
+  const path = { pts, cum, L };
+  return { segs: [{ k: 'walk', t0: 0, dur, path, ta, yaw, fov }], dips: [], T: dur + 1.2, n: fr.length, swayAmp, W: o.W, H: o.H, aspect, baseFov: fov, o };
+}
 function plan(o) {
+  if (o.motion === 'straight') return planStraight(o);
   const c = prepare(); if (!c.stops.length) return null;
   const sx = walkable(state.P.x, state.P.z, .4) ? state.P.x : findSpawn(museum)[0], sz = walkable(state.P.x, state.P.z, .4) ? state.P.z : findSpawn(museum)[1];
   const start = { x: sx, z: sz, cell: c.cellOf(sx, sz) }; if (start.cell < 0) return null;
@@ -186,6 +213,11 @@ function pose(P, t) {       // posisi dan arah kamera pada detik ke-t (+ gerak s
 function pose0(P, t) {
   let seg = P.segs[P.segs.length - 1]; for (const s of P.segs) if (t < s.t0 + s.dur) { seg = s; break; }
   const u = t - seg.t0;
+  if (seg.k === 'walk') {
+    const { path, ta, dur } = seg, vv = path.L / (dur - ta), tt = Math.min(u, dur);
+    const d = tt < ta ? vv * tt * tt / (2 * ta) : tt > dur - ta ? path.L - vv * (dur - tt) * (dur - tt) / (2 * ta) : vv * (tt - ta / 2);
+    const [x, z] = at(path, d); return { x, z, mv: 1, yaw: seg.yaw, pitch: 0, fov: seg.fov };
+  }
   if (seg.k === 'stay') {                         // diam di depan bingkai: hanya goyangan halus yang memudar di awal dan akhir (tidak ada lompatan ke gerakan berikutnya)
     const s = seg.s, nx = Math.sin(s.a), nz = Math.cos(s.a), env = sm(u / 1.0) * sm((seg.dur - u) / 1.0), side = Math.sin(t * .6) * .07 * env;
     return { x: s.x + nz * side, z: s.z - nx * side, yaw: s.a + Math.sin(t * .5) * .012 * env, pitch: seg.pitch, fov: seg.fov, mv: 0 };
@@ -338,7 +370,7 @@ function resetModal() {
   info();
 }
 const readOpts = () => ({
-  size: $('tr-asp').value, dwell: +$('tr-dwell').value, speed: $('tr-speed').value, order: $('tr-order').value,
+  size: $('tr-asp').value, dwell: +$('tr-dwell').value, speed: $('tr-speed').value, order: $('tr-order').value, motion: $('tr-motion').value, sway: $('tr-sway').value, reverse: $('tr-rev').checked,
   crab: $('tr-crab').checked, style: $('tr-style').value, doorfade: $('tr-door').checked, time: $('tr-time-sel').value, audio: $('tr-aud').checked, rec: $('tr-rec').checked,
 });
 let infoTimer = 0;
@@ -349,7 +381,7 @@ function info() {
     const o = readOpts(), [W, H] = o.size.split('x').map(Number);
     let P = null; try { P = plan({ ...o, W, H }); } catch (e) { console.error(e); }
     const total = (museum.layout && museum.layout.frames || []).length;
-    $('tr-info').textContent = P ? `${P.n} dari ${total} bingkai, perkiraan ${fmt(P.T)} menit.` : 'Belum ada bingkai yang bisa dikunjungi. Pasang bingkai lewat denah dulu.';
+    $('tr-info').textContent = P ? (o.motion === 'straight' ? `Jalan lurus melewati ${P.n} bingkai, perkiraan ${fmt(P.T)} menit.` + (o.sway !== 'none' ? (P.swayAmp ? ` Geser menyamping sampai ${P.swayAmp.toFixed(1).replace('.', ',')} m.` : ' Lorong terlalu sempit untuk menyamping.') : '') : `${P.n} dari ${total} bingkai, perkiraan ${fmt(P.T)} menit.`) : o.motion === 'straight' ? 'Mode jalan lurus butuh denah berupa lorong lurus dengan bingkai.' : 'Belum ada bingkai yang bisa dikunjungi. Pasang bingkai lewat denah dulu.';
     $('tr-go').disabled = !P;
   }, 60);
 }
@@ -358,7 +390,8 @@ export function openTour() {
   const m = $('tour'); if (!m.classList.contains('open')) { if (openModal()) return; resetModal(); toggleModal(m); } else toggleModal(m);
 }
 export function initTour() {
-  ['tr-asp', 'tr-dwell', 'tr-speed', 'tr-order', 'tr-crab', 'tr-style', 'tr-door'].forEach(id => $(id).addEventListener('change', info));
+  ['tr-asp', 'tr-motion', 'tr-sway', 'tr-rev', 'tr-dwell', 'tr-speed', 'tr-order', 'tr-crab', 'tr-style', 'tr-door'].forEach(id => $(id).addEventListener('change', info));
+  $('tr-motion').addEventListener('change', () => { const st = $('tr-motion').value === 'straight'; ['tr-dwell', 'tr-order', 'tr-crab'].forEach(id => { $(id).disabled = st; }); $('tr-rev').disabled = !st; $('tr-sway').disabled = !st; });
   $('tr-rec').addEventListener('change', () => { $('tr-aud').disabled = !$('tr-rec').checked; });
   $('tr-go').onclick = () => { const o = readOpts(); toggleModal($('tour')); setTimeout(() => startTour(o), 60); };
   $('tr-close').onclick = () => toggleModal($('tour')); $('tr-close2').onclick = () => { toggleModal($('tour')); };

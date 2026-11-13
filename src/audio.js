@@ -47,7 +47,11 @@ export function startAudio() {
 ['pointerdown', 'keydown', 'touchend'].forEach(ev => addEventListener(ev, () => { if (!ctx || ctx.state !== 'running') startAudio(); }, { passive: true }));
 document.addEventListener('visibilitychange', () => { if (!ctx) return; if (document.hidden) ctx.suspend(); else if (alive) ctx.resume(); });
 
-export function toggleMusic() { musicOn = !musicOn; save(LS.music, musicOn); startAudio(); if (ctx) musicBus.gain.setTargetAtTime(musicOn ? .5 : 0, ctx.currentTime, .3); return musicOn; }
+let customOn = false; const musicCbs = [];
+export const setCustomMusic = v => { customOn = !!v; };                 // lagu pilihan sendiri sedang dipakai: musik otomatis diam
+export const onMusic = f => musicCbs.push(f);
+export function musicNode() { const c = ensure(); return c ? { ctx: c, bus: musicBus } : null; }
+export function toggleMusic() { musicOn = !musicOn; save(LS.music, musicOn); startAudio(); musicCbs.forEach(f => f(musicOn)); if (ctx) musicBus.gain.setTargetAtTime(musicOn ? .5 : 0, ctx.currentTime, .3); return musicOn; }
 export function toggleSfx() { sfxOn = !sfxOn; save(LS.sfx, sfxOn); startAudio(); if (ctx) { sfxBus.gain.setTargetAtTime(sfxOn ? 1 : 0, ctx.currentTime, .1); ambBus.gain.setTargetAtTime(sfxOn ? 1 : 0, ctx.currentTime, .3); if (!sfxOn) outBus.gain.setTargetAtTime(0, ctx.currentTime, .2); } return sfxOn; }
 export function setMusicSeed(code) { seed = String(code || 'lokal').toLowerCase(); songKey = ''; }
 
@@ -178,5 +182,5 @@ export function updateAudio(dt, active, amt, air, x, z) {
     if (day && t > nextBird) { bird(t + .05); nextBird = t + 2.5 + Math.random() * 6; }
     if (night && t > nextCricket) { cricket(t + .05); nextCricket = t + .5 + Math.random() * 1.1; }
   }
-  if (musicOn) { sched -= dt; if (sched < 0) { sched = .25; scheduleMusic(); } }
+  if (musicOn && !customOn) { sched -= dt; if (sched < 0) { sched = .25; scheduleMusic(); } }
 }

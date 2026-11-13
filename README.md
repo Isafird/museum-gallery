@@ -170,3 +170,13 @@ Di editor denah (**L**) ada tombol **Ekspor** (mengunduh `layout.json`) dan **Im
 
 ## Pratinjau karakter
 Layar **Edit karakter** punya panggung pratinjau sendiri (latar polos abu-cokelat, pencahayaan merata dari segala arah, bisa diputar dengan menyeretnya), jadi karakter selalu jelas terlihat dengan warna aslinya, tidak bergantung pada pemandangan museum di belakangnya. Di HP potret panggung berada di atas panel, di layar lebar di kanan panel.
+
+## Lorong lurus + tur jalan lurus
+- `layout-lorong-lurus.json`: lorong 56 × 9 m dengan 8 pasang sekat tegak lurus dinding (kiri dan kanan). Bingkai (16) dipasang di sisi sekat yang menghadap kamera, jadi terlihat langsung dari depan saat berjalan. Pasang lewat denah (L) → Impor → Simpan.
+- Tur otomatis → "Gerak kamera: Jalan lurus terus": kamera berjalan lurus di tengah lorong tanpa berhenti dan tanpa berputar. Opsi "Mulai dari ujung yang berlawanan" membalik arah (bingkai hanya menghadap satu arah, jadi bingkai terlihat dari depan hanya pada arah awal).
+
+## Geser menyamping (kepiting) di tur jalan lurus
+Tur otomatis → Gerak kamera "Jalan lurus terus" → "Geser menyamping": kiri-kanan bergantian, pelan ke kiri, atau pelan ke kanan. Arah pandang tetap lurus; lebar geser dihitung otomatis supaya tidak menyentuh dinding atau sekat.
+
+## Lagu sendiri
+Tombol "Lagu sendiri" (menu): (1) impor file audio (mp3/m4a/wav/ogg, boleh banyak, diputar bergantian) — masuk jalur suara museum, ikut terekam di video tur; (2) link YouTube (video/playlist) atau Spotify lewat pemutar resmi mini di pojok kiri bawah — tidak ikut terekam, Spotify tanpa login hanya cuplikan 30 dtk. Tombol Musik [N] menjeda lagu. Parser link: src/lagulink.js.

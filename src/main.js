@@ -24,6 +24,7 @@ import { applyLayout, loadLocal, updateFrameDrag, isDraggingFrame } from './worl
 import { defaultLayout } from './layout.js';
 import { updateDaytime, setTimeMode } from './daytime.js';
 import { startAudio, updateAudio, setMusicSeed } from './audio.js';
+import { initLagu } from './lagu.js';
 import { initTour, tourActive, tourUpdate, startTour, tourSeek, tourInfo, tourPose, tourAudit } from './tour.js';
 
 const { H } = ROOM;
@@ -74,7 +75,7 @@ initUI({
   onStart: (code, online) => { startAudio(); setMusicSeed(code || 'lokal'); state.active = true; camera.clearViewOffset(); lockCursor(); clearChat(); if (code) connect(code); if (online) startOnline(code); },
   onMenu: backToMenu,
 });
-initOnline(); initTour();
+initOnline(); initTour(); initLagu();
 initChat({ onSend: text => { sayOver(me, text); return sendChat(text); } });
 loadLocal();                           // mode lokal: muat denah dan foto tersimpan di browser
 

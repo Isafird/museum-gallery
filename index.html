@@ -95,6 +95,7 @@
     <button id="timebtn">Waktu: Otomatis [J]</button>
     <button id="musbtn">Musik: nyala [N]</button>
     <button id="sfxbtn">Suara ruangan: nyala [K]</button>
+    <button id="lagubtn">Lagu sendiri</button>
     <button id="tourbtn">Tur otomatis [U]</button>
     <button id="helpbtn">Bantuan [H]</button>
     <button id="plnbtn">Denah [L]</button>
@@ -143,12 +144,28 @@
   <input id="pick" type="file" accept="image/*,video/*,.heic,.heif,.avif" hidden>
 </div>
 
+<div id="lagudock"><div id="lg-dock-head"><span>Lagu</span><button id="lg-dock-x" type="button" title="Tutup dan kembali ke musik otomatis">×</button></div><div id="lg-dock-body"></div></div>
+<div id="lagu" class="modal"><div class="hbox">
+  <h2>Lagu sendiri</h2>
+  <p class="s">Ganti musik latar museum dengan lagumu. Tombol Musik [N] tetap bisa menjeda.</p>
+  <label>Dari file (bisa pilih beberapa, diputar bergantian)<input id="lg-file" type="file" accept="audio/*" multiple></label>
+  <div id="lg-file-ctl" style="display:none"><div id="lg-list"></div><div class="trow"><button id="lg-prev" class="chip" type="button">Sebelumnya</button><button id="lg-next" class="chip" type="button">Berikutnya</button></div></div>
+  <label>Atau link YouTube / Spotify<input id="lg-url" type="url" placeholder="https://www.youtube.com/watch?v=... atau https://open.spotify.com/..."></label>
+  <div class="trow"><button id="lg-play" class="chip primary" type="button">Putar link</button></div>
+  <label>Volume<input id="lg-vol" type="range" min="0" max="100" value="80"></label>
+  <p id="lg-state" class="s"></p>
+  <p class="s">File ikut terekam di video tur. Lagu dari link YouTube/Spotify hanya terdengar di layar, tidak masuk ke video rekaman. File tidak tersimpan setelah halaman ditutup.</p>
+  <div class="trow"><button id="lg-auto" class="chip" type="button">Kembali ke musik otomatis</button><button id="lg-close" class="chip" type="button">Tutup</button></div>
+</div></div>
 <div id="tourbar" role="status"><span class="dotrec"></span><b>Merekam</b><span id="tr-time">0:00</span><i><u id="tr-bar"></u></i><button id="tr-pause" type="button">Jeda [Spasi]</button><button id="tr-stop" type="button">Hentikan [Esc]</button></div>
 <div id="tour" class="modal"><div class="hbox">
   <h2>Tur otomatis</h2>
   <div id="tourset">
     <p class="s">Kamera berjalan sendiri melewati semua bingkai mengikuti denah museum, lalu videonya bisa kamu unduh.</p>
     <label>Bentuk video<select id="tr-asp"><option value="1280x720">Landscape 16:9 (1280×720)</option><option value="1920x1080">Landscape Full HD (1920×1080)</option><option value="720x1280">Potret 9:16 (720×1280)</option><option value="1080x1920">Potret Full HD (1080×1920)</option></select></label>
+    <label>Gerak kamera<select id="tr-motion"><option value="stops">Berhenti di tiap bingkai</option><option value="straight">Jalan lurus terus (cocok untuk lorong)</option></select></label>
+    <label>Geser menyamping (seperti kepiting)<select id="tr-sway" disabled><option value="none">Tidak, lurus di tengah</option><option value="zigzag">Kiri-kanan bergantian</option><option value="left">Pelan ke kiri</option><option value="right">Pelan ke kanan</option></select></label>
+    <label class="chk"><input type="checkbox" id="tr-rev" disabled> Mulai dari ujung yang berlawanan</label>
     <label>Lama berhenti di tiap bingkai<select id="tr-dwell"><option value="1">1 detik</option><option value="2.5">2,5 detik</option><option value="3.5" selected>3,5 detik</option><option value="5">5 detik</option><option value="7">7 detik</option></select></label>
     <label>Kecepatan berjalan<select id="tr-speed"><option value="santai">Santai</option><option value="normal" selected>Normal</option><option value="cepat">Cepat</option></select></label>
     <label>Urutan bingkai<select id="tr-order"><option value="auto">Otomatis (rute paling singkat)</option><option value="id">Sesuai nomor bingkai</option></select></label>
